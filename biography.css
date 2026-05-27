@@ -1,0 +1,85 @@
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    background-color: #ffffff;
+    margin: 20px;
+    line-height: 1.6;
+    color: #333333;
+}
+
+h3 {
+    color: #222222;
+    border-bottom: 1px solid #dddddd;
+    padding-bottom: 4px;
+    margin-top: 24px;
+}
+
+p.dropcap::first-letter {
+    font-size: 2.2em;
+    font-weight: bold;
+    float: left;
+    margin: 4px 6px 0 0;
+    line-height: 0.85;
+    color: #555555;
+}
+
+a {
+    color: #333333;
+    text-decoration: underline;
+}
+
+a:hover {
+    color: #000000;
+}
+
+nav-link {
+    display: inline-block;
+    margin-top: 8px;
+}
+
+.code-section {
+    margin: 30px 0;
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.code-section summary {
+    background-color: #dddddd;
+    padding: 10px 16px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-weight: bold;
+    font-size: 0.95em;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+}
+
+.code-section summary::-webkit-details-marker {
+    display: none;
+}
+
+.code-section summary::before {
+    content: "\25B6\00A0";
+}
+
+details[open].code-section summary::before {
+    content: "\25BC\00A0";
+}
+
+.code-section summary:hover {
+    background-color: #cccccc;
+}
+
+.code-section pre {
+    margin: 0;
+    padding: 16px;
+    background-color: #f8f8f8;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.5;
+    border-top: 1px solid #cccccc;
+}
+
+.code-section code {
+    font-family: 'Courier New', Courier, monospace;
+}
