@@ -1,0 +1,2908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unloom — a wheel of voices</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Mono:wght@300;400;500&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #08070d; --bg-2: #0e0c14; --bg-3: #14121b;
+  --ink: #f1ebdc; --ink-soft: rgba(241, 235, 220, 0.62);
+  --ink-mute: rgba(241, 235, 220, 0.32);
+  --gold: #c9943a; --gold-soft: rgba(201, 148, 58, 0.4);
+  --tear: #d96149; --tear-soft: rgba(217, 97, 73, 0.45);
+  --connect: #ffffff; --connect-soft: rgba(255, 255, 255, 0.6);
+  --line: rgba(241, 235, 220, 0.12);
+  --divine: #d4a548; --innovator: #ef9f27; --participant: #1d9e75;
+  --spinster: #afa9ec; --invisible: #888780;
+}
+
+html, body {
+  background: var(--bg); color: var(--ink);
+  font-family: 'DM Mono', monospace; height: 100%; width: 100%;
+  overflow: hidden; cursor: none;
+}
+body::before {
+  content: ""; position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(201,148,58,0.06), transparent 65%),
+    radial-gradient(ellipse at 30% 80%, rgba(217,97,73,0.04), transparent 60%);
+  pointer-events: none; z-index: 0;
+}
+
+#stage {
+  position: fixed; inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  grid-template-rows: auto auto 1fr auto;
+  z-index: 1;
+}
+
+header {
+  grid-column: 1 / -1; grid-row: 1 / 2;
+  padding: 14px 28px 10px; border-bottom: 1px solid var(--line);
+  display: flex; justify-content: space-between; align-items: baseline; gap: 24px;
+  background: linear-gradient(to bottom, rgba(8,7,13,0.95), rgba(8,7,13,0.7));
+  z-index: 5;
+}
+header h1 {
+  font-family: 'Cormorant Garamond', serif; font-weight: 300;
+  font-size: clamp(20px, 2.2vw, 28px);
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold);
+}
+header h1 em { font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ink); margin-left: 8px; }
+header .meta { font-size: 11px; letter-spacing: 0.12em; color: var(--ink-mute); text-align: right; line-height: 1.5; }
+
+#instructions-strip {
+  grid-column: 1 / -1; grid-row: 2 / 3;
+  padding: 14px 28px;
+  background: var(--bg-2); border-bottom: 1px solid var(--gold-soft);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 20px; font-style: italic; line-height: 1.5;
+  color: var(--ink-soft); text-align: center;
+}
+#instructions-strip .istep { display: inline-block; padding: 0 10px; }
+#instructions-strip .istep:not(:last-child)::after { content: " · "; color: var(--gold); margin-left: 10px; }
+#instructions-strip strong { color: var(--ink); font-weight: 500; font-style: normal; }
+#instructions-strip .ihl { color: var(--gold); font-weight: 500; }
+#instructions-strip .itear { color: var(--tear); font-weight: 500; }
+#instructions-strip .iwhite { color: #fff; font-weight: 500; }
+
+#cloth-area { grid-column: 1 / 2; grid-row: 3 / 4; position: relative; overflow: hidden; min-height: 0; }
+#three-host { position: absolute; inset: 0; }
+#three-host canvas { display: block; width: 100% !important; height: 100% !important; }
+
+#canvas-legend {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  z-index: 5;
+  background: rgba(8, 7, 13, 0.74);
+  border: 1px solid rgba(241, 235, 220, 0.12);
+  padding: 9px 13px 11px;
+  font-family: 'DM Mono', monospace;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+  max-width: 280px;
+}
+#canvas-legend .cl-title {
+  color: var(--gold);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+#canvas-legend .cl-row {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 1px 0;
+  font-size: 10px;
+}
+#canvas-legend .cl-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  flex-shrink: 0; align-self: center;
+}
+#canvas-legend .cl-name {
+  font-weight: 500;
+  color: var(--ink);
+  min-width: 78px;
+  letter-spacing: 0.04em;
+}
+#canvas-legend .cl-desc {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+aside {
+  grid-column: 2 / 3; grid-row: 3 / 4;
+  border-left: 1px solid var(--line); background: var(--bg-2);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.panel-section { padding: 12px 18px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+.panel-section.flex { flex: 1; min-height: 0; display: flex; flex-direction: column; padding-bottom: 0; }
+.panel-label {
+  font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--ink-mute); margin-bottom: 8px;
+  display: flex; justify-content: space-between; align-items: baseline;
+}
+.panel-label .count { color: var(--tear); font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 13px; letter-spacing: 0; text-transform: none; }
+.panel-label .count.connect { color: #fff; }
+.stat-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-soft); padding: 2px 0; }
+.stat-row strong { font-family: 'Cormorant Garamond', serif; font-weight: 400; font-style: italic; font-size: 14px; color: var(--ink); }
+.stat-bar { height: 2px; margin-top: 6px; background: rgba(241,235,220,0.06); position: relative; overflow: hidden; }
+.stat-bar .fill { position: absolute; inset: 0 auto 0 0; background: linear-gradient(to right, var(--gold), var(--tear)); width: 0%; transition: width 0.3s ease; }
+
+.north-display {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; background: rgba(241,235,220,0.03);
+  border-left: 3px solid; margin-top: 6px;
+  transition: border-color 0.4s ease;
+}
+.north-display .nd-label { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--ink-mute); flex-shrink: 0; }
+.north-display .nd-voice { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 16px; flex: 1; text-align: right; transition: color 0.4s ease; }
+
+.sonnet-progress { margin-top: 6px; font-size: 10px; color: var(--ink-mute); letter-spacing: 0.1em; text-transform: uppercase; }
+.sonnet-progress .sp-bar { display: flex; gap: 3px; margin-top: 4px; }
+.sonnet-progress .sp-tick { flex: 1; height: 4px; background: rgba(241,235,220,0.06); }
+.sonnet-progress .sp-tick.filled { background: var(--tear); }
+
+.cat-row { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; font-size: 11px; color: var(--ink-soft); }
+.cat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+#conn-list { max-height: 100px; overflow-y: auto; }
+.conn-empty { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 12px; color: var(--ink-mute); padding: 4px 0; }
+.conn-item {
+  font-family: 'Cormorant Garamond', serif; font-size: 13px;
+  padding: 4px 8px; margin-bottom: 3px;
+  background: rgba(255,255,255,0.04); border-left: 2px solid #fff;
+  display: flex; justify-content: space-between; gap: 6px;
+  animation: spark 0.7s ease;
+}
+.conn-item .conn-words { font-style: italic; color: var(--ink); flex: 1; }
+.conn-item .conn-cats {
+  font-family: 'DM Mono', monospace; font-size: 9px;
+  color: var(--ink-mute); letter-spacing: 0.05em;
+  align-self: center;
+}
+@keyframes spark {
+  0% { background: rgba(255,255,255,0.4); opacity: 0; transform: scale(0.95); }
+  100% { background: rgba(255,255,255,0.04); opacity: 1; transform: scale(1); }
+}
+#conn-list::-webkit-scrollbar { width: 4px; }
+#conn-list::-webkit-scrollbar-thumb { background: rgba(241,235,220,0.1); }
+
+#verse-scroll { flex: 1; overflow-y: auto; padding: 0 18px 18px; }
+.verse-empty { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 14px; color: var(--ink-mute); text-align: center; padding: 20px 0; }
+.fragment {
+  padding: 10px 12px; margin-bottom: 8px;
+  background: rgba(217,97,73,0.04); border-left: 2px solid;
+  font-family: 'Cormorant Garamond', serif; font-style: italic;
+  line-height: 1.55; color: var(--ink); animation: drop 0.6s ease;
+}
+.fragment.fragment-connect { background: rgba(255,255,255,0.05); }
+.fragment .fr-meta {
+  font-family: 'DM Mono', monospace; font-style: normal;
+  font-size: 9px; letter-spacing: 0.1em; color: var(--ink-mute);
+  margin-bottom: 5px; text-transform: uppercase;
+  display: flex; justify-content: space-between; gap: 8px;
+}
+.fragment .fr-line { display: block; font-size: 16px; }
+.fragment .fr-line:not(:last-child) { margin-bottom: 2px; }
+.fragment .fr-dir {
+  display: inline-block; padding: 1px 6px; margin-right: 4px;
+  border: 1px solid currentColor;
+  font-family: 'DM Mono', monospace; font-size: 9px;
+  letter-spacing: 0.1em; font-style: normal;
+}
+@keyframes drop {
+  0% { opacity: 0; transform: translateY(-12px) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+#verse-scroll::-webkit-scrollbar { width: 6px; }
+#verse-scroll::-webkit-scrollbar-thumb { background: rgba(241,235,220,0.1); }
+
+.btn {
+  width: 100%; padding: 10px; margin-bottom: 4px;
+  background: transparent; border: 1px solid var(--line); color: var(--ink-soft);
+  font-family: 'DM Mono', monospace; font-size: 11px;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  cursor: none; transition: all 0.2s ease;
+}
+.btn:hover { border-color: var(--gold); color: var(--ink); }
+.btn.primary { background: rgba(217,97,73,0.06); border-color: var(--tear-soft); color: var(--tear); }
+.btn.primary:hover { background: rgba(217,97,73,0.16); color: var(--ink); border-color: var(--tear); }
+.btn.warn { background: rgba(217,97,73,0.18); color: var(--ink); border-color: var(--tear); }
+.btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+#bibliography {
+  grid-column: 1 / -1; grid-row: 4 / 5;
+  padding: 14px 28px;
+  background: var(--bg-3); border-top: 1px solid var(--line);
+  font-family: 'DM Mono', monospace; font-size: 11px;
+  color: var(--ink-mute); line-height: 1.6;
+}
+#bibliography .bib-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold); margin-bottom: 6px; }
+#bibliography .bib-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 18px; }
+#bibliography .bib-item { font-style: italic; color: var(--ink-soft); text-indent: -1.5em; padding-left: 1.5em; }
+#bibliography .bib-item .bib-author { font-style: normal; color: var(--ink); margin-right: 4px; }
+#bibliography .bib-item .bib-title { color: var(--ink); }
+
+#poem-overlay {
+  position: fixed; inset: 0;
+  background: rgba(8,7,13,0.94); display: none;
+  align-items: center; justify-content: center; z-index: 40;
+  backdrop-filter: blur(10px); padding: 30px;
+}
+#poem-overlay.active { display: flex; }
+#poem-card {
+  width: min(760px, 100%); max-height: 90vh;
+  padding: 36px 44px; position: relative;
+  border: 1px solid var(--tear-soft); background: var(--bg-2);
+  overflow-y: auto;
+}
+#poem-card::before {
+  content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent 0 28px, rgba(241,235,220,0.02) 28px 29px);
+  pointer-events: none;
+}
+.poem-pattern-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--tear); margin-bottom: 4px; position: relative; }
+.poem-words-label { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 14px; color: var(--ink-mute); margin-bottom: 24px; position: relative; }
+#poem-card.sonnet { border-color: var(--gold-soft); }
+#poem-card.sonnet .poem-pattern-label { color: var(--gold); }
+
+.full-verse {
+  position: relative;
+  font-family: 'Cormorant Garamond', serif; font-style: italic;
+  font-size: 22px; line-height: 1.85; color: var(--ink);
+  text-align: center; margin-bottom: 24px;
+}
+.full-verse .full-line { display: block; margin-bottom: 4px; }
+.full-verse .full-stanza-break { display: block; height: 14px; }
+
+.sonnet-verse {
+  position: relative;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 19px; line-height: 1.95; color: var(--ink);
+  margin-bottom: 24px; text-align: justify; hyphens: auto;
+}
+.sonnet-verse .sn-line { display: block; padding: 0 4px; }
+.sonnet-verse .sn-stanza-break { display: block; height: 14px; }
+.sonnet-verse .sn-line.sn-couplet { text-align: center; font-style: italic; margin-top: 6px; color: var(--gold); }
+
+.poem-actions { display: flex; gap: 8px; justify-content: center; margin-top: 18px; position: relative; }
+.poem-actions .btn { width: auto; padding: 8px 18px; margin: 0; }
+
+#cursor {
+  position: fixed; width: 22px; height: 22px;
+  border: 1px solid var(--ink); border-radius: 50%;
+  pointer-events: none; z-index: 100;
+  transform: translate(-50%, -50%);
+  transition: width 0.15s, height 0.15s, border-color 0.15s, background 0.15s;
+  mix-blend-mode: exclusion;
+}
+#cursor.grab { width: 14px; height: 14px; background: var(--ink); }
+#cursor.tear { border-color: var(--tear); background: var(--tear); box-shadow: 0 0 16px var(--tear-soft); }
+#cursor.rotate { width: 38px; height: 38px; border: 2px dashed var(--gold); background: transparent; box-shadow: 0 0 12px rgba(201,148,58,0.3); }
+#cursor.connect { width: 32px; height: 32px; border: 2px solid #fff; background: rgba(255,255,255,0.4); box-shadow: 0 0 24px rgba(255,255,255,0.6); }
+#cursor.spiral {
+  width: 40px; height: 40px;
+  border: 2px solid var(--gold);
+  background: radial-gradient(circle, transparent 30%, rgba(201,148,58,0.35));
+  box-shadow: 0 0 24px rgba(201,148,58,0.7);
+}
+
+@media (max-width: 880px) {
+  #stage { grid-template-columns: 1fr; grid-template-rows: auto auto 55vh 30vh auto; }
+  #cloth-area { grid-row: 3; }
+  aside { border-left: none; border-top: 1px solid var(--line); grid-column: 1; grid-row: 4; }
+  #bibliography { grid-row: 5; }
+  #bibliography .bib-list { grid-template-columns: 1fr; }
+  #instructions-strip { font-size: 16px; padding: 12px 18px; }
+}
+#process-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 7, 13, 0.95);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  backdrop-filter: blur(10px);
+  padding: 30px;
+}
+#process-overlay.active { display: flex; }
+#process-card {
+  width: min(800px, 100%);
+  max-height: 90vh;
+  padding: 32px 44px 28px;
+  position: relative;
+  border: 1px solid var(--gold-soft);
+  background: var(--bg-2);
+  overflow-y: auto;
+}
+#process-card .proc-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 18px;
+}
+#process-card p {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--ink-soft);
+  margin-bottom: 12px;
+}
+#process-card p strong {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  color: var(--ink);
+  font-weight: 500;
+}
+#process-card em {
+  font-style: italic;
+  color: var(--ink);
+}
+#process-card .proc-list {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--ink-soft);
+  list-style: none;
+  padding-left: 0;
+  margin: 4px 0 14px;
+}
+#process-card .proc-list li {
+  padding: 3px 0 3px 18px;
+  position: relative;
+}
+#process-card .proc-list li::before {
+  content: "—";
+  position: absolute;
+  left: 0;
+  color: var(--gold);
+}
+#process-card .vc-divine     { color: var(--divine);     font-weight: 500; font-style: italic; }
+#process-card .vc-innovator  { color: var(--innovator);  font-weight: 500; font-style: italic; }
+#process-card .vc-participant{ color: var(--participant);font-weight: 500; font-style: italic; }
+#process-card .vc-spinster   { color: var(--spinster);   font-weight: 500; font-style: italic; }
+#process-card .vc-invisible  { color: var(--invisible);  font-weight: 500; font-style: italic; }
+#process-card .proc-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 22px;
+}
+#process-card .proc-actions .btn {
+  width: auto;
+  padding: 8px 22px;
+  margin: 0;
+}
+#process-card .code-row {
+  margin: 6px 0 14px;
+}
+#process-card .code-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-top: 6px;
+  margin-bottom: 4px;
+}
+#process-card .code-label.yours { color: rgba(175, 169, 236, 0.85); }
+#process-card .code-label.mine  { color: rgba(201, 148, 58, 0.95); }
+#process-card .proc-code {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--gold);
+  background: rgba(8, 7, 13, 0.55);
+  padding: 9px 14px;
+  margin: 0;
+  border-left: 2px solid var(--gold-soft);
+  white-space: pre;
+  overflow-x: auto;
+  line-height: 1.55;
+  font-style: normal;
+}
+#process-card .proc-code.yours {
+  border-left-color: rgba(175, 169, 236, 0.5);
+  color: rgba(214, 209, 246, 0.92);
+}
+#process-card .proc-code .cc {
+  color: var(--ink-mute);
+  font-style: italic;
+}
+
+</style>
+</head>
+<body>
+
+<div id="cursor"></div>
+
+<div id="stage">
+  <header>
+    <h1>Unloom <em>— a wheel of voices in three dimensions</em></h1>
+    <div class="meta">
+      <div>orbit · pull · connect · gather</div>
+      <div style="opacity:0.5">a 3D loom you re-shape with your hands</div>
+    </div>
+  </header>
+
+  <div id="instructions-strip">
+    <span class="istep"><strong>Drag empty</strong> to <span class="ihl">orbit</span> · <strong>scroll / pinch</strong> to <span class="ihl">zoom</span></span>
+    <span class="istep"><strong>Drag a thread</strong> — the word stays where you place it</span>
+    <span class="istep"><strong>Drag the gold center ↑↓</strong> &rarr; <span class="ihl">spiral the whole cloth</span></span>
+    <span class="istep">After a pull, <strong>tap</strong> another pulled word &rarr; <span class="iwhite">connect with white light</span></span>
+    <span class="istep"><span class="ihl">NORTH</span> voice leads · <strong>4+ pulls</strong> &rarr; <span class="itear">prose sonnet</span></span>
+  </div>
+
+  <div id="cloth-area">
+    <div id="three-host"></div>
+    <div id="canvas-legend">
+      <div class="cl-title">Voices in the cloth</div>
+      <div class="cl-row"><span class="cl-dot" style="background:var(--divine)"></span><span class="cl-name">divine</span><span class="cl-desc">named originators · goddesses</span></div>
+      <div class="cl-row"><span class="cl-dot" style="background:var(--innovator)"></span><span class="cl-name">innovator</span><span class="cl-desc">credited inventors</span></div>
+      <div class="cl-row"><span class="cl-dot" style="background:var(--participant)"></span><span class="cl-name">participant</span><span class="cl-desc">labour · ten thousand hands</span></div>
+      <div class="cl-row"><span class="cl-dot" style="background:var(--spinster)"></span><span class="cl-name">spinster</span><span class="cl-desc">kinship · the unmarried</span></div>
+      <div class="cl-row"><span class="cl-dot" style="background:var(--invisible)"></span><span class="cl-name">invisible</span><span class="cl-desc">unwritten · forgotten</span></div>
+    </div>
+  </div>
+
+  <aside>
+    <div class="panel-section">
+      <div class="panel-label">
+        <span>The wheel</span>
+        <span class="count" id="integrity-num">100%</span>
+      </div>
+      <div class="stat-row"><span>Threads intact</span><strong id="threads-intact">—</strong></div>
+      <div class="stat-row"><span>Verses written</span><strong id="threads-broken">0</strong></div>
+      <div class="stat-bar"><div class="fill" id="break-bar"></div></div>
+
+      <div class="north-display" id="north-display">
+        <span class="nd-label">North voice</span>
+        <span class="nd-voice" id="nd-voice">—</span>
+      </div>
+
+      <div class="sonnet-progress">
+        <div>Pulls toward sonnet:&nbsp;<span id="sonnet-num">0</span> / 4</div>
+        <div class="sp-bar" id="sonnet-bar">
+          <div class="sp-tick"></div><div class="sp-tick"></div><div class="sp-tick"></div><div class="sp-tick"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-label">
+        <span>Your connections</span>
+        <span class="count connect" id="conn-count">0</span>
+      </div>
+      <div id="conn-list"><div class="conn-empty">— pull words near each other —</div></div>
+    </div>
+
+    <div class="panel-section flex">
+      <div class="panel-label">
+        <span>The verse-scroll</span>
+        <span class="count" id="frag-count">0</span>
+      </div>
+      <div id="verse-scroll">
+        <div class="verse-empty">— pull a thread to begin —</div>
+      </div>
+    </div>
+
+    <div class="panel-section" style="border-bottom:none">
+      <button class="btn primary" id="read-btn" disabled>Read the whole unraveling</button>
+      <button class="btn" id="reweave-btn">Re-weave the wheel</button>
+      <button class="btn" id="reset-view-btn">Reset 3D view</button>
+      <button class="btn" id="process-btn">How this works</button>
+    </div>
+  </aside>
+
+  <footer id="bibliography">
+    <div class="bib-label">References — APA</div>
+    <div class="bib-list">
+      <div class="bib-item"><span class="bib-author">Gilroy, C. G. (1845).</span> <span class="bib-title">The history of silk, cotton, linen, wool, and other fibrous substances</span>. Harper &amp; Brothers.</div>
+      <div class="bib-item"><span class="bib-author">Rock, D. (1870).</span> <span class="bib-title">Textile fabrics: A descriptive catalogue of the collection of church-vestments, dresses, silk stuffs, needlework and tapestries</span>. Chapman and Hall.</div>
+      <div class="bib-item"><span class="bib-author">Taylor, J. T. (1909).</span> <span class="bib-title">Cotton weaving and designing</span> (4th ed.). Longmans, Green &amp; Co.</div>
+      <div class="bib-item"><span class="bib-author">Kissell, M. L. (1914).</span> <span class="bib-title">A history of textiles</span>. Home Economics Department, Teachers College, Columbia University.</div>
+    </div>
+  </footer>
+</div>
+
+<div id="poem-overlay">
+  <div id="poem-card">
+    <div class="poem-pattern-label" id="poem-pattern-label"></div>
+    <div class="poem-words-label" id="poem-words-label"></div>
+    <div id="poem-body"></div>
+    <div class="poem-actions">
+      <button class="btn" onclick="closePoem()">Return to the wheel</button>
+      <button class="btn" onclick="freshTear()">Tear differently</button>
+    </div>
+  </div>
+</div>
+
+<div id="process-overlay">
+  <div id="process-card">
+    <div class="proc-label">How this works</div>
+
+    <p>This wheel began as two pieces of code shared early on: a 2D spinning wheel where rings stretched out vertically when you spun it, and a 3D loom of voices drawn from textile history scholarship. They were merged into a single 3D cloth that you can pull, connect, and read aloud as poetry.</p>
+
+    <p><strong>Translating the spinning wheel into 3D.</strong> The original code stretched rings vertically based on how much you spun. In the 3D version, dragging the gold center makes every thread rotate and lift. Outer rings spin and rise <em>more</em> than inner ones — that's what gives you a true 3D helix instead of just a flat spiral. Same idea as the original, given depth.</p>
+
+    <div class="code-row">
+      <div class="code-label yours">From your p5 spiral — the tornadoT effect</div>
+      <pre class="proc-code yours">let ry      = rx * max(0.08, 1 - tornadoT * 0.88);
+let ringCY  = cy + (i - n/2) * 10 * tornadoT * 2.2;</pre>
+      <div class="code-label mine">My 3D translation — applied per node, every frame</div>
+      <pre class="proc-code">const twist  = amount * radius * 0.0011;
+const angle  = baseAngle + twist;
+const zLift  = amount * radius * 0.42;
+node.position.set(
+  radius * Math.cos(angle),
+  radius * Math.sin(angle),
+  baseZ + zLift
+);</pre>
+    </div>
+
+    <p><strong>The cloth physics, kept simple.</strong> Every thread has a "rest length" — how long it wants to be at peace. When you pull a vertex, the threads connecting to it stretch. The system runs a tiny loop each frame, gently nudging each thread back toward its rest length. A small damping value means motion loses a bit of energy each frame, so things slow down naturally instead of vibrating forever.</p>
+
+    <div class="code-row">
+      <div class="code-label mine">My verlet step — each node, each frame</div>
+      <pre class="proc-code"><span class="cc">// position from history, with damping 0.985</span>
+const vx = (node.x - node.prev.x) * 0.985;
+node.prev.x = node.x;
+node.x += vx;
+<span class="cc">// (same for y and z)</span></pre>
+      <div class="code-label mine">My constraint solver — runs 4 iterations per frame</div>
+      <pre class="proc-code">const dist = a.distanceTo(b);
+const diff = (dist - spring.restLength) / dist * 0.5;
+const offset = b.clone().sub(a).multiplyScalar(diff);
+a.add(offset);
+b.sub(offset);</pre>
+    </div>
+
+    <p><strong>Why pulls stay where you place them.</strong> Normally, springs would pull the thread back to where it started. Here, when you release a pull, the system <em>rewrites</em> every thread's rest length to its current length. The wheel agrees that this is the new resting shape, and the deformation becomes permanent. Re-weaving is the only reset.</p>
+
+    <div class="code-row">
+      <div class="code-label mine">My rebaseline — called on release, not on grab</div>
+      <pre class="proc-code">function rebaselineAll() {
+  springs.forEach(s =&gt; {
+    s.restLength = s.a.distanceTo(s.b);
+  });
+  nodes.forEach(n =&gt; {
+    n.restPosition.copy(n.position);
+    n.prev.copy(n.position);
+  });
+}</pre>
+    </div>
+
+    <p><strong>Why the cloth doesn't ripple when you pull.</strong> During a drag, the spring system still measures how stretched each thread is, but it skips one step — instead of pulling other vertices toward the moving one, it freezes them. So you see only the pulled thread stretch, not the whole cloth ripple. A deliberate choice for visual clarity, so the act of pulling reads as one focused gesture.</p>
+
+    <div class="code-row">
+      <div class="code-label mine">My freeze-during-grab — every node skipped except the grabbed one</div>
+      <pre class="proc-code">nodes.forEach(n =&gt; {
+  if (state.grabbedNode &amp;&amp; n !== state.grabbedNode) return;
+  <span class="cc">// only the grabbed node integrates this frame</span>
+  applyVerletStep(n);
+});</pre>
+    </div>
+
+    <p><strong>Why the lines are curvy.</strong> Earlier versions drew each spoke and ring as straight line segments — rigid and angular. To restore the organic feel of the original p5 cloth, every spoke and ring is now a smooth curve passing through all its nodes. When you pull a vertex, the curve gracefully bends through the displaced position rather than producing a sharp kink.</p>
+
+    <div class="code-row">
+      <div class="code-label yours">From your earlier Three.js sketch — straight segments</div>
+      <pre class="proc-code yours"><span class="cc">// rigid line between consecutive nodes — produces sharp kinks when pulled</span>
+const geometry = new THREE.BufferGeometry().setFromPoints(nodes);
+const line = new THREE.LineSegments(geometry, material);</pre>
+      <div class="code-label mine">My replacement — Catmull-Rom curve through all nodes</div>
+      <pre class="proc-code">const curve = new THREE.CatmullRomCurve3(
+  spokeNodePositions,
+  false,        <span class="cc">// open spoke (rings pass true for closed)</span>
+  'centripetal' <span class="cc">// avoids self-intersection when pulled hard</span>
+);
+const samples = curve.getPoints(64);  <span class="cc">// 64 per spoke, 90 per ring</span></pre>
+    </div>
+
+    <p><strong>The 3D drag plane.</strong> When you grab a thread, the system invisibly creates a 2D plane perpendicular to where the camera is looking. Your mouse motion projects onto that plane. The clever part: as the camera moves, the plane changes. View the wheel face-on and pulling moves a thread within the cloth's plane. View it from the side and the same upward gesture lifts the thread <em>out</em> of the plane entirely. Same gesture, different physical meaning.</p>
+
+    <div class="code-row">
+      <div class="code-label mine">My drag plane — rebuilt every frame so it follows the camera</div>
+      <pre class="proc-code">const camDir = new THREE.Vector3();
+camera.getWorldDirection(camDir);
+
+dragPlane.setFromNormalAndCoplanarPoint(
+  camDir.negate(),              <span class="cc">// plane faces the camera</span>
+  state.grabbedNode.position    <span class="cc">// passes through grabbed node</span>
+);
+
+raycaster.setFromCamera(mouseNDC, camera);
+raycaster.ray.intersectPlane(dragPlane, intersect);
+state.grabbedNode.position.copy(intersect);</pre>
+    </div>
+
+    <p><strong>Connecting the categories — a deliberate choice.</strong> Five voice categories were extracted from the source manuscripts: <span class="vc-divine">divine</span> (named goddesses, mythologized originators), <span class="vc-innovator">innovator</span> (credited inventors, often retroactively), <span class="vc-participant">participant</span> (the labour-class — ten thousand unsigned hands), <span class="vc-spinster">spinster</span> (kinship terms used to dismiss working women), and <span class="vc-invisible">invisible</span> (women whose only document is the work they made).</p>
+
+    <p>The connections between categories are <em>not</em> generated by an algorithm. Every cross-category pair has hand-written rhetorical arguments — sentences that name a specific historical paradox:</p>
+
+    <ul class="proc-list">
+      <li><em>divine + invisible</em>: "the goddess greets the unwritten one" — the paradox of deification beside non-record</li>
+      <li><em>innovator + spinster</em>: "she invented it. they called her a spinster instead." — a kinship word used to dismiss the inventor word</li>
+      <li><em>participant + spinster</em>: "the daughter and the aunt, weaving the same cloth" — kinship as conscription of labour</li>
+    </ul>
+
+    <p>Thirty-three sentences total — three for each voice pair — each making a specific argument. They cycle so consecutive connections of the same pair give different sentences.</p>
+
+    <div class="code-row">
+      <div class="code-label yours">From your Loom of Tongues — five voice categories</div>
+      <pre class="proc-code yours">const CATEGORIES = {
+  divine:      { col: '#d4a548', words: ['Arachne', 'Minerva', ...] },
+  innovator:   { col: '#ef9f27', words: ['inventor', 'pioneer', ...] },
+  participant: { col: '#1d9e75', words: ['weaver', 'spinner', ...] },
+  spinster:    { col: '#afa9ec', words: ['distaff', 'maiden', ...] },
+  invisible:   { col: '#888780', words: ['unnamed', 'forgotten', ...] },
+};</pre>
+      <div class="code-label mine">My connection grammar — hand-written, three variants per pair</div>
+      <pre class="proc-code">'innovator+spinster': [
+  [`${wA} touches ${wB} —`,
+   `she invented it. they called her a spinster instead.`],
+  [`${wA} ↔ ${wB} —`,
+   `the kinship word was a way to dismiss the inventor word`],
+  [`${wA} reaches ${wB} —`,
+   `inventor and spinster — both names for women who worked`],
+],
+<span class="cc">// 11 voice-pairs × 3 variants = 33 sentences total</span></pre>
+    </div>
+
+    <p><strong>Non-repeating poetry.</strong> Each voice has 8 different fragment templates and 3 different sonnet structures. A counter advances each time you pull or trigger a sonnet, so the verse-scroll cannot repeat itself. The three sonnet structures per voice are intentionally different in shape:</p>
+
+    <ul class="proc-list">
+      <li><em>divine</em> cycles between a story, a series of questions, and a list of names</li>
+      <li><em>innovator</em> cycles between a narrative, a courtroom-style verdict, and a catalogue</li>
+      <li><em>participant</em> cycles between shift-work narrative, a collective "we," and the loom-as-witness</li>
+      <li><em>spinster</em> cycles between character study, etymology of the word "spinster," and an unanswered letter</li>
+      <li><em>invisible</em> cycles between archive negation, cloth-as-testimony, and counting</li>
+    </ul>
+
+    <p>The wheel cannot repeat its syntax until 15 sonnets have passed.</p>
+
+    <div class="code-row">
+      <div class="code-label mine">My cycling counter — advances per pull, per voice</div>
+      <pre class="proc-code">state.fragmentVoiceCounter[voice] =
+  state.fragmentVoiceCounter[voice] || 0;
+
+const tmpl = templates[
+  state.fragmentVoiceCounter[voice] % templates.length
+];
+
+state.fragmentVoiceCounter[voice]++;
+<span class="cc">// 8 fragments × 5 voices = 40 templates, all cycle independently</span>
+<span class="cc">// 3 sonnets × 5 voices = 15 sonnet structures, same pattern</span></pre>
+    </div>
+
+    <p><strong>Which voice "leads."</strong> The system projects each category's center to the screen each frame and picks whichever is closest to the top of the view. As you orbit the camera, different voices rise to the top, taking turns leading the next fragment. Whoever the camera makes prominent gets the next word.</p>
+
+    <p style="margin-top: 16px; font-style: italic; color: var(--ink-mute); text-align: center;">The cloth, throughout, is a rewritable text — physics and language in one wheel.</p>
+
+    <div class="proc-actions">
+      <button class="btn" onclick="closeProcess()">Return to the wheel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+//  UNLOOM 3D — pulls stay, words connect with white light
+// ════════════════════════════════════════════════════════════════
+
+const CATEGORIES = {
+  divine:       { col: 0xd4a548, hex: '#d4a548', label: 'divine',      words: ['Arachne','Minerva','Isis','Pamphile','Helen','goddess','sovereign','inventress','Mamaoella','Sidonian','Athena','Tanit'] },
+  innovator:    { col: 0xef9f27, hex: '#ef9f27', label: 'innovator',   words: ['inventor','pioneer','master','creator','wise','virtuous','celebrated','skilled','crafted','designed','patented','discovered'] },
+  participant:  { col: 0x1d9e75, hex: '#1d9e75', label: 'participant', words: ['weaver','artisan','maker','spinner','dyer','threader','knotter','stitcher','worker','daughter','apprentice','seamstress'] },
+  spinster:     { col: 0xafa9ec, hex: '#afa9ec', label: 'spinster',    words: ['distaff','maiden','widow','crone','grandmother','elder','sister','countrywoman','matron','wife','aunt','midwife'] },
+  invisible:    { col: 0x888780, hex: '#888780', label: 'invisible',   words: ['unnamed','forgotten','hidden','silent','unseen','erased','collective','silenced','denied','blamed','footnoted','anonymous'] }
+};
+
+const PATTERN_NAMES = ['plain','twill','satin','herringbone'];
+const RINGS = 8, SPOKES = 30;
+const BAND_SIZE = RINGS / 4;
+function patternFor(r) { return PATTERN_NAMES[Math.floor(r / BAND_SIZE)]; }
+
+const WORLD_OUTER_R = 600;
+const WORLD_INNER_R = 70;
+const RING_GAP = (WORLD_OUTER_R - WORLD_INNER_R) / (RINGS - 1);
+
+const DAMPING = 0.985;
+const SOLVE_ITERATIONS = 4;
+const CHAIN_BREAK_RATIO = 999;       // effectively unbreakable — pulls reshape, don't destroy
+const CROSS_BREAK_DIST = 99999;      // same — words stay in the cloth
+const GRAB_RADIUS_PIXELS = 42;
+const VERTICAL_RATIO = 1.4;
+const SONNET_TRIGGER = 4;
+const CONNECTION_PIXEL_THRESHOLD = 60;
+const ZOOM_MIN = 500;
+const ZOOM_MAX = 4500;
+const MIN_PULL_PIXELS = 8;           // any drag farther than this counts as a real pull
+
+// ── STATE ──────────────────────────────────────────────────────
+const state = {
+  // Physics
+  spokeNodes: [], ringNodes: [], centerNode: null,
+  spokeSprings: [], ringSprings: [], crossLinks: [],
+
+  // Camera orbit
+  cameraTheta: 0, cameraPhi: 0.45, cameraDistance: 1700,
+
+  // Mouse
+  mouseX: 0, mouseY: 0,
+  isDown: false,
+  isOrbiting: false,
+  isGrabbing: false,
+  grabbedNode: null,
+  hoverNode: null,
+  dragStartX: 0, dragStartY: 0,
+  orbitStartTheta: 0, orbitStartPhi: 0,
+
+  // User pattern of connections
+  userConnections: [],
+  affectedLinks: [],
+  connectionCandidate: null,
+  connectionFlashes: [],
+  thinkPulses: [],
+
+  // Spiral mode (drag the center)
+  isSpiralPulling: false,
+  spiralStartMouseY: 0,
+  currentSpiralAmount: 0,
+
+  // Proximity feedback during pull — faint lines to nearby words
+  proximityLines: [],
+
+  // Manual connection mode — pulled words become tap-targets for explicit connections
+  activeConnectionSource: null,   // most recently pulled cross-link, or null after deselect
+  pulledLinks: new Set(),         // every cross-link ever pulled in this wheel
+
+  // Variation counters — cycle templates so each pull / sonnet / connection is unique
+  fragmentVoiceCounter: {},
+  sonnetVoiceCounter: {},
+  connectionCounter: 0,
+
+  // Verse generation
+  fragments: [],
+  totalCrossLinks: 0,
+  brokenCrossLinks: 0,
+  generations: 0,
+  verticalPullsSinceSonnet: 0,
+  sonnetWordsBuffer: [],
+  flashes: [],
+
+  // UI
+  reweaveArmed: false,
+  reweaveTimeout: null,
+
+  // Three.js handles
+  scene: null, camera: null, renderer: null,
+  spokeLines: null, ringLines: null, crossLines: null,
+  flashLines: null, connectionLines: null, tentativeLines: null, sparkLines: null,
+  proximityLineSegs: null,
+  wordSprites: [], freedSprites: [], haloSprites: [],
+  hoveredLink: null,
+
+  // Pinch zoom
+  isPinching: false,
+  pinchStartDist: 0,
+  pinchStartCameraDist: 0,
+};
+
+// ── THREE.JS SETUP ─────────────────────────────────────────────
+function setupThree() {
+  const host = document.getElementById('three-host');
+  const w = host.clientWidth || (window.innerWidth - 320);
+  const h = host.clientHeight || (window.innerHeight - 200);
+
+  state.scene = new THREE.Scene();
+  state.camera = new THREE.PerspectiveCamera(45, w / h, 1, 6000);
+  state.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  state.renderer.setSize(w, h);
+  state.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  state.renderer.setClearColor(0x08070d);
+  host.innerHTML = '';
+  host.appendChild(state.renderer.domElement);
+
+  const glowGeom = new THREE.SphereGeometry(WORLD_INNER_R * 0.6, 16, 16);
+  const glowMat = new THREE.MeshBasicMaterial({ color: 0xc9943a, transparent: true, opacity: 0.15 });
+  state.scene.add(new THREE.Mesh(glowGeom, glowMat));
+
+  // Center hub — the spiral control. Larger, gold, clearly a button.
+  const hubGeom = new THREE.SphereGeometry(20, 20, 20);
+  const hubMat = new THREE.MeshBasicMaterial({ color: 0xc9943a });
+  state.centerHub = new THREE.Mesh(hubGeom, hubMat);
+  state.scene.add(state.centerHub);
+
+  // Decorative ring around the hub — visual cue that it spins
+  const ringGeom = new THREE.TorusGeometry(36, 1.5, 8, 48);
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0xc9943a, transparent: true, opacity: 0.5 });
+  state.centerRing = new THREE.Mesh(ringGeom, ringMat);
+  state.scene.add(state.centerRing);
+
+  // Pre-allocate line geometries
+  state.spokeLines = makeLineSegments(2000);  // bigger — curve sampling produces more segments
+  state.ringLines = makeLineSegments(800);
+  state.crossLines = makeLineSegments(SPOKES * RINGS * 2);
+  state.flashLines = makeLineSegments(200);
+  state.connectionLines = makeLineSegments(200);
+  state.tentativeLines = makeLineSegments(2);
+  state.sparkLines = makeLineSegments(400);
+  state.proximityLineSegs = makeLineSegments(20);
+
+  state.scene.add(state.spokeLines.mesh);
+  state.scene.add(state.ringLines.mesh);
+  state.scene.add(state.crossLines.mesh);
+  state.scene.add(state.flashLines.mesh);
+  state.scene.add(state.connectionLines.mesh);
+  state.scene.add(state.tentativeLines.mesh);
+  state.scene.add(state.sparkLines.mesh);
+  state.scene.add(state.proximityLineSegs.mesh);
+
+  updateCamera();
+  window.addEventListener('resize', onResize);
+  setTimeout(onResize, 50);
+
+  const c = state.renderer.domElement;
+  c.addEventListener('mousedown', onMouseDown);
+  c.addEventListener('wheel', onWheel, { passive: false });
+  window.addEventListener('mousemove', onMouseMove);
+  window.addEventListener('mouseup', onMouseUp);
+  c.addEventListener('touchstart', onTouchStart, { passive: false });
+  window.addEventListener('touchmove', onTouchMove, { passive: false });
+  window.addEventListener('touchend', onTouchEnd, { passive: false });
+}
+
+function makeLineSegments(maxLines) {
+  const positions = new Float32Array(maxLines * 6);
+  const colors = new Float32Array(maxLines * 6);
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geom.setDrawRange(0, 0);
+  const mat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 1 });
+  const mesh = new THREE.LineSegments(geom, mat);
+  return { mesh, geom, positions, colors, maxLines };
+}
+
+function onResize() {
+  const host = document.getElementById('three-host');
+  const w = host.clientWidth, h = host.clientHeight;
+  state.camera.aspect = w / h;
+  state.camera.updateProjectionMatrix();
+  state.renderer.setSize(w, h);
+}
+
+function updateCamera() {
+  const x = state.cameraDistance * Math.sin(state.cameraTheta) * Math.cos(state.cameraPhi);
+  const y = state.cameraDistance * Math.sin(state.cameraPhi);
+  const z = state.cameraDistance * Math.cos(state.cameraTheta) * Math.cos(state.cameraPhi);
+  state.camera.position.set(x, y, z);
+  state.camera.lookAt(0, 0, 0);
+  state.camera.up.set(0, 1, 0);
+}
+
+// ── BUILD WHEEL ────────────────────────────────────────────────
+function makeNode(x, y, z, fixed, type, extra = {}) {
+  return Object.assign({
+    x, y, z,
+    oldX: x, oldY: y, oldZ: z,
+    restX: x, restY: y, restZ: z,
+    fixed: !!fixed, grabbed: false, type,
+  }, extra);
+}
+
+function makeSpring(a, b, type, extra = {}) {
+  const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+  return Object.assign({
+    a, b, restLength: Math.sqrt(dx*dx + dy*dy + dz*dz),
+    broken: false, type, stretch: 1,
+  }, extra);
+}
+
+function buildWheel() {
+  state.spokeNodes = []; state.ringNodes = [];
+  state.spokeSprings = []; state.ringSprings = []; state.crossLinks = [];
+  state.flashes = [];
+  state.userConnections = [];
+  state.affectedLinks = [];
+  state.connectionCandidate = null;
+  state.connectionFlashes = [];
+  state.thinkPulses = [];
+  state.activeConnectionSource = null;
+  state.pulledLinks = new Set();
+  state.fragmentVoiceCounter = {};
+  state.sonnetVoiceCounter = {};
+  state.connectionCounter = 0;
+  state.brokenCrossLinks = 0;
+  state.fragments = [];
+  state.verticalPullsSinceSonnet = 0;
+  state.sonnetWordsBuffer = [];
+
+  for (const sp of state.wordSprites) state.scene.remove(sp);
+  for (const fs of state.freedSprites) state.scene.remove(fs);
+  for (const h of state.haloSprites) state.scene.remove(h);
+  state.wordSprites = []; state.freedSprites = []; state.haloSprites = [];
+
+  state.centerNode = makeNode(0, 0, 0, true, 'center');
+
+  // Spoke chains (radial, in xy plane)
+  for (let i = 0; i < SPOKES; i++) {
+    const angle = (i / SPOKES) * Math.PI * 2;
+    const sNodes = [];
+    for (let r = 0; r < RINGS; r++) {
+      const radius = WORLD_INNER_R + r * RING_GAP;
+      const x = Math.cos(angle) * radius;
+      const y = Math.sin(angle) * radius;
+      sNodes.push(makeNode(x, y, 0, false, 'spoke', { spokeIdx: i, ringIdx: r }));
+    }
+    state.spokeNodes.push(sNodes);
+  }
+  for (let i = 0; i < SPOKES; i++) {
+    state.spokeSprings.push(makeSpring(state.centerNode, state.spokeNodes[i][0], 'spoke', { spokeIdx: i }));
+    for (let r = 0; r < RINGS - 1; r++) {
+      state.spokeSprings.push(makeSpring(state.spokeNodes[i][r], state.spokeNodes[i][r+1], 'spoke', { spokeIdx: i, ringIdx: r }));
+    }
+  }
+
+  // Ring loops
+  const ANG_OFF = (Math.PI * 2 / SPOKES) * 0.18;
+  for (let r = 0; r < RINGS; r++) {
+    const radius = WORLD_INNER_R + r * RING_GAP;
+    const rNodes = [];
+    for (let i = 0; i < SPOKES; i++) {
+      const angle = (i / SPOKES) * Math.PI * 2 + ANG_OFF;
+      rNodes.push(makeNode(Math.cos(angle) * radius, Math.sin(angle) * radius, 0, false, 'ring', { ringIdx: r, slotIdx: i }));
+    }
+    state.ringNodes.push(rNodes);
+  }
+  for (let r = 0; r < RINGS; r++) {
+    const rNodes = state.ringNodes[r];
+    for (let i = 0; i < SPOKES; i++) {
+      state.ringSprings.push(makeSpring(rNodes[i], rNodes[(i+1)%SPOKES], 'ring', { ringIdx: r, slotIdx: i }));
+    }
+  }
+
+  // Path-ordered spring maps for curve rendering
+  state.spokeSpringMap = [];
+  for (let i = 0; i < SPOKES; i++) {
+    const ss = state.spokeSprings.filter(s => s.spokeIdx === i);
+    ss.sort((a, b) => {
+      const aR = a.ringIdx === undefined ? -1 : a.ringIdx;
+      const bR = b.ringIdx === undefined ? -1 : b.ringIdx;
+      return aR - bR;
+    });
+    state.spokeSpringMap.push(ss);
+  }
+  state.ringSpringMap = [];
+  for (let r = 0; r < RINGS; r++) {
+    const rs = state.ringSprings
+      .filter(s => s.ringIdx === r)
+      .sort((a, b) => a.slotIdx - b.slotIdx);
+    state.ringSpringMap.push(rs);
+  }
+
+  // Pre-allocated curve point arrays — reused each frame to avoid GC churn
+  state.spokeCurvePoints = [];
+  for (let i = 0; i < SPOKES; i++) {
+    const arr = [new THREE.Vector3()];
+    for (let r = 0; r < RINGS; r++) arr.push(new THREE.Vector3());
+    state.spokeCurvePoints.push(arr);
+  }
+  state.ringCurvePoints = [];
+  for (let r = 0; r < RINGS; r++) {
+    const arr = [];
+    for (let i = 0; i < SPOKES; i++) arr.push(new THREE.Vector3());
+    state.ringCurvePoints.push(arr);
+  }
+
+  // Cross-links carry the words
+  const catKeys = Object.keys(CATEGORIES);
+  for (let i = 0; i < SPOKES; i++) {
+    for (let r = 0; r < RINGS; r++) {
+      const a = state.spokeNodes[i][r];
+      const b = state.ringNodes[r][i];
+      const catKey = catKeys[Math.floor(i / (SPOKES / catKeys.length)) % catKeys.length];
+      const catInfo = CATEGORIES[catKey];
+      const word = catInfo.words[(r * 5 + i) % catInfo.words.length];
+      const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+      const link = {
+        a, b, restLength: Math.sqrt(dx*dx + dy*dy + dz*dz),
+        broken: false, type: 'cross',
+        spokeIdx: i, ringIdx: r,
+        angle: (i / SPOKES) * Math.PI * 2,
+        word, cat: catKey, col: catInfo.hex, colNum: catInfo.col,
+        pattern: patternFor(r),
+      };
+      state.crossLinks.push(link);
+
+      const sprite = makeWordSprite(word, catInfo.hex);
+      sprite.position.set((a.x+b.x)/2, (a.y+b.y)/2, (a.z+b.z)/2);
+      state.scene.add(sprite);
+      state.wordSprites.push(sprite);
+      link.sprite = sprite;
+
+      const halo = makeHaloSprite(catInfo.hex);
+      halo.position.copy(sprite.position);
+      state.scene.add(halo);
+      state.haloSprites.push(halo);
+      link.halo = halo;
+    }
+  }
+  state.totalCrossLinks = state.crossLinks.length;
+
+  // Reset side panel HTML
+  document.getElementById('verse-scroll').innerHTML = '<div class="verse-empty">— pull a thread to begin —</div>';
+  document.getElementById('conn-list').innerHTML = '<div class="conn-empty">— pull words near each other —</div>';
+
+  updatePanel();
+  updateNorthDisplay();
+}
+
+// ── WORD SPRITES ───────────────────────────────────────────────
+function makeWordSprite(word, hexColor) {
+  const cv = document.createElement('canvas');
+  cv.width = 512; cv.height = 128;
+  const ctx = cv.getContext('2d');
+  ctx.font = "italic 56px 'Cormorant Garamond', serif";
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = hexColor;
+  ctx.fillText(word, 256, 64);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.needsUpdate = true;
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+  const sprite = new THREE.Sprite(mat);
+  const scale = Math.max(80, word.length * 16);
+  sprite.scale.set(scale, scale * 0.25, 1);
+  return sprite;
+}
+
+// Halo: a soft glowing ring behind each word — a button-like target
+function makeHaloSprite(hexColor) {
+  const cv = document.createElement('canvas');
+  cv.width = 96; cv.height = 96;
+  const ctx = cv.getContext('2d');
+  const r = parseInt(hexColor.substring(1, 3), 16);
+  const g = parseInt(hexColor.substring(3, 5), 16);
+  const b = parseInt(hexColor.substring(5, 7), 16);
+  // Soft outer glow
+  const grad = ctx.createRadialGradient(48, 48, 6, 48, 48, 46);
+  grad.addColorStop(0,   `rgba(${r},${g},${b},0.55)`);
+  grad.addColorStop(0.4, `rgba(${r},${g},${b},0.22)`);
+  grad.addColorStop(1,   `rgba(${r},${g},${b},0)`);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 96, 96);
+  // Subtle ring
+  ctx.strokeStyle = `rgba(${r},${g},${b},0.5)`;
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.arc(48, 48, 22, 0, Math.PI * 2);
+  ctx.stroke();
+  const tex = new THREE.CanvasTexture(cv);
+  tex.minFilter = THREE.LinearFilter;
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0.5 });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(60, 60, 1);
+  return sprite;
+}
+
+// Scroll-wheel zoom (clamped)
+function onWheel(e) {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 1.12 : 0.89;
+  state.cameraDistance = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, state.cameraDistance * factor));
+  updateCamera();
+}
+
+// ── PHYSICS ────────────────────────────────────────────────────
+function physicsStep() {
+  const grabbing = state.isGrabbing && state.grabbedNode;
+
+  const allNodes = [state.centerNode];
+  for (const t of state.spokeNodes) for (const n of t) allNodes.push(n);
+  for (const t of state.ringNodes) for (const n of t) allNodes.push(n);
+
+  // Verlet integration — but during a grab, every other node is FROZEN
+  // so the cloth doesn't visibly distort. Only the grabbed node moves.
+  for (const n of allNodes) {
+    if (n.fixed || n.grabbed) {
+      n.oldX = n.x; n.oldY = n.y; n.oldZ = n.z;
+      continue;
+    }
+    if (grabbing) {
+      // Frozen — kill any residual velocity so nothing drifts
+      n.oldX = n.x; n.oldY = n.y; n.oldZ = n.z;
+      continue;
+    }
+    const vx = (n.x - n.oldX) * DAMPING;
+    const vy = (n.y - n.oldY) * DAMPING;
+    const vz = (n.z - n.oldZ) * DAMPING;
+    n.oldX = n.x; n.oldY = n.y; n.oldZ = n.z;
+    n.x += vx; n.y += vy; n.z += vz;
+  }
+
+  for (let iter = 0; iter < SOLVE_ITERATIONS; iter++) {
+    for (const s of state.spokeSprings) solveChainSpring(s, grabbing);
+    for (const s of state.ringSprings) solveChainSpring(s, grabbing);
+    for (const s of state.crossLinks) solveCrossLink(s, grabbing);
+  }
+
+  // Freed sprites drift
+  for (const fs of state.freedSprites) {
+    fs.life -= 0.005;
+    fs.position.x += fs.vx;
+    fs.position.y += fs.vy;
+    fs.position.z += fs.vz;
+    fs.vx *= 0.96; fs.vy *= 0.96; fs.vz *= 0.96;
+    if (fs.material && fs.material.opacity != null) fs.material.opacity = Math.max(0, fs.life);
+  }
+  state.freedSprites = state.freedSprites.filter(fs => {
+    if (fs.life <= 0) { state.scene.remove(fs); return false; }
+    return true;
+  });
+
+  // Connection sparks
+  for (const f of state.connectionFlashes) {
+    f.life -= 0.025;
+    f.x += f.vx; f.y += f.vy; f.z += f.vz;
+    f.vx *= 0.92; f.vy *= 0.92; f.vz *= 0.92;
+  }
+  state.connectionFlashes = state.connectionFlashes.filter(f => f.life > 0);
+
+  // Snap flashes
+  for (const f of state.flashes) f.life -= 0.04;
+  state.flashes = state.flashes.filter(f => f.life > 0);
+}
+
+function solveChainSpring(s, grabbing) {
+  if (s.broken) return;
+  const dx = s.b.x - s.a.x;
+  const dy = s.b.y - s.a.y;
+  const dz = s.b.z - s.a.z;
+  const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+  if (dist < 0.001) return;
+  s.stretch = dist / s.restLength;
+  if (s.stretch > CHAIN_BREAK_RATIO) {
+    s.broken = true;
+    onSpringBreak(s);
+    return;
+  }
+  if (grabbing) return;  // detect breaks but don't propagate forces during grab
+  const diff = (dist - s.restLength) / dist;
+  const half = diff * 0.5;
+  if (!s.a.fixed && !s.a.grabbed) { s.a.x += dx * half; s.a.y += dy * half; s.a.z += dz * half; }
+  if (!s.b.fixed && !s.b.grabbed) { s.b.x -= dx * half; s.b.y -= dy * half; s.b.z -= dz * half; }
+}
+
+function solveCrossLink(s, grabbing) {
+  if (s.broken) return;
+  const dx = s.b.x - s.a.x;
+  const dy = s.b.y - s.a.y;
+  const dz = s.b.z - s.a.z;
+  const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+  if (dist < 0.001) return;
+  s.stretch = dist / Math.max(s.restLength, 1);
+  if (dist > CROSS_BREAK_DIST) {
+    s.broken = true;
+    onSpringBreak(s);
+    return;
+  }
+  if (grabbing) return;  // same — cloth doesn't deform during a grab
+  const diff = (dist - s.restLength) / dist;
+  const half = diff * 0.5;
+  if (!s.a.fixed && !s.a.grabbed) { s.a.x += dx * half; s.a.y += dy * half; s.a.z += dz * half; }
+  if (!s.b.fixed && !s.b.grabbed) { s.b.x -= dx * half; s.b.y -= dy * half; s.b.z -= dz * half; }
+}
+
+function classifyPullDirection() {
+  const dx = state.mouseX - state.dragStartX;
+  const dy = state.mouseY - state.dragStartY;
+  const ax = Math.abs(dx), ay = Math.abs(dy);
+  if (ay > ax * VERTICAL_RATIO) return dy < 0 ? 'up' : 'down';
+  if (ax > ay * VERTICAL_RATIO) return dx < 0 ? 'left' : 'right';
+  return 'diagonal';
+}
+
+function onSpringBreak(s) {
+  state.flashes.push({
+    x1: s.a.x, y1: s.a.y, z1: s.a.z,
+    x2: s.b.x, y2: s.b.y, z2: s.b.z,
+    life: 1.0,
+  });
+
+  if (s.type === 'cross') {
+    state.brokenCrossLinks++;
+
+    const mx = (s.a.x + s.b.x) / 2;
+    const my = (s.a.y + s.b.y) / 2;
+    const mz = (s.a.z + s.b.z) / 2;
+    const len = Math.sqrt(mx*mx + my*my + mz*mz) || 1;
+
+    if (s.sprite) s.sprite.visible = false;
+
+    const freed = makeWordSprite(s.word, s.col);
+    freed.position.set(mx, my, mz);
+    freed.vx = (mx/len) * 6 + (Math.random()-0.5) * 2;
+    freed.vy = (my/len) * 6 + (Math.random()-0.5) * 2;
+    freed.vz = (mz/len) * 6 + (Math.random()-0.5) * 4 + 2;
+    freed.life = 1.5;
+    state.scene.add(freed);
+    state.freedSprites.push(freed);
+
+    const direction = classifyPullDirection();
+    const northVoice = getNorthCategory();
+    const fragment = makeFragment(s, direction, northVoice);
+    state.fragments.push(fragment);
+    addFragmentToScroll(fragment);
+
+    if (direction === 'up' || direction === 'down') {
+      state.verticalPullsSinceSonnet++;
+      state.sonnetWordsBuffer.push({ word: s.word, cat: s.cat, col: s.col, direction });
+      if (state.verticalPullsSinceSonnet >= SONNET_TRIGGER) {
+        setTimeout(() => triggerSonnet(), 350);
+      }
+    }
+    updatePanel();
+  }
+}
+
+// ── REBASELINE — make current shape the new "rest" shape ───────
+function rebaselineAll() {
+  const allNodes = [state.centerNode];
+  for (const t of state.spokeNodes) for (const n of t) allNodes.push(n);
+  for (const t of state.ringNodes) for (const n of t) allNodes.push(n);
+
+  // Update each node's rest position to current position
+  for (const n of allNodes) {
+    n.restX = n.x;
+    n.restY = n.y;
+    n.restZ = n.z;
+    n.oldX = n.x;
+    n.oldY = n.y;
+    n.oldZ = n.z; // kill velocity
+  }
+
+  // Update all springs' rest lengths so the new geometry is at equilibrium
+  for (const s of state.spokeSprings) {
+    if (s.broken) continue;
+    const dx = s.a.x - s.b.x, dy = s.a.y - s.b.y, dz = s.a.z - s.b.z;
+    s.restLength = Math.max(0.01, Math.sqrt(dx*dx + dy*dy + dz*dz));
+    s.stretch = 1;
+  }
+  for (const s of state.ringSprings) {
+    if (s.broken) continue;
+    const dx = s.a.x - s.b.x, dy = s.a.y - s.b.y, dz = s.a.z - s.b.z;
+    s.restLength = Math.max(0.01, Math.sqrt(dx*dx + dy*dy + dz*dz));
+    s.stretch = 1;
+  }
+  for (const s of state.crossLinks) {
+    if (s.broken) continue;
+    const dx = s.a.x - s.b.x, dy = s.a.y - s.b.y, dz = s.a.z - s.b.z;
+    s.restLength = Math.max(0.01, Math.sqrt(dx*dx + dy*dy + dz*dz));
+    s.stretch = 1;
+  }
+}
+
+// ── SPIRAL MODE ───────────────────────────────────────────────
+// The center is special. Drag it up or down to twist the entire cloth into a helix.
+// Outer rings get lifted further than inner rings — the original tornadoT effect, in 3D.
+
+const SPIRAL_TEMPLATES = {
+  up: [
+    [
+      "the whole cloth lifts —",
+      "every voice rising in a single spiral,",
+      "the rim chases the rim above it,",
+      "a helix of names ascending toward the sky"
+    ],
+    [
+      "you turned the wheel skyward —",
+      "centuries of women caught in one upward turn,",
+      "the warp twists as it climbs,",
+      "each thread reaching for the one before it"
+    ],
+    [
+      "the loom climbs into the air —",
+      "the spinster, the goddess, the worker, the unnamed,",
+      "all of them pulled into the same vortex,",
+      "rising past their categories at last"
+    ],
+  ],
+  down: [
+    [
+      "the whole cloth falls —",
+      "every voice descending in a single spiral,",
+      "the rim chases the rim below it,",
+      "a helix of names settling toward the earth"
+    ],
+    [
+      "you turned the wheel earthward —",
+      "centuries of women caught in one downward turn,",
+      "the warp twists as it descends,",
+      "each thread pulling the one before it under"
+    ],
+    [
+      "the loom sinks below the rim —",
+      "the spinster, the goddess, the worker, the unnamed,",
+      "all of them pulled into the same vortex,",
+      "burying back into the dark they came from"
+    ],
+  ],
+};
+
+function isOverCenter(mx, my) {
+  const sp = projectToScreen(0, 0, 0);
+  if (sp.z > 1) return false;
+  const dx = mx - sp.x, dy = my - sp.y;
+  return Math.sqrt(dx * dx + dy * dy) < 36;
+}
+
+function snapshotPositionsForSpiral() {
+  const allNodes = [];
+  for (const t of state.spokeNodes) for (const n of t) allNodes.push(n);
+  for (const t of state.ringNodes) for (const n of t) allNodes.push(n);
+  for (const n of allNodes) {
+    n.spiralStartX = n.x;
+    n.spiralStartY = n.y;
+    n.spiralStartZ = n.z;
+  }
+}
+
+function applySpiralTransform(amount) {
+  // amount: positive = upward spiral, negative = downward
+  const allNodes = [];
+  for (const t of state.spokeNodes) for (const n of t) allNodes.push(n);
+  for (const t of state.ringNodes) for (const n of t) allNodes.push(n);
+
+  for (const n of allNodes) {
+    const sx = n.spiralStartX || n.x;
+    const sy = n.spiralStartY || n.y;
+    const sz = n.spiralStartZ || n.z;
+    const r = Math.sqrt(sx * sx + sy * sy);
+    if (r < 0.5) continue;
+    const angle = Math.atan2(sy, sx);
+    // Twist proportional to radius — outer rings spin further (gentler than before)
+    const twist = amount * r * 0.0011;
+    const newAngle = angle + twist;
+    // Lift in z proportional to radius — outer rings rise/fall further (gentler)
+    const zLift = amount * r * 0.42;
+    n.x = Math.cos(newAngle) * r;
+    n.y = Math.sin(newAngle) * r;
+    n.z = sz + zLift;
+    // Reset old positions so verlet doesn't impart velocity
+    n.oldX = n.x;
+    n.oldY = n.y;
+    n.oldZ = n.z;
+  }
+}
+
+function makeSpiralFragment(direction) {
+  const templates = SPIRAL_TEMPLATES[direction];
+  const tmpl = templates[Math.floor(Math.random() * templates.length)];
+  return {
+    lines: tmpl,
+    word: direction === 'up' ? 'spiral upward' : 'spiral downward',
+    cat: 'spiral',
+    col: '#c9943a',
+    speakerVoice: 'spiral',
+    speakerCol: '#c9943a',
+    spokeIdx: -1, ringIdx: -1,
+    angle: 0,
+    direction,
+    pattern: 'spiral',
+    clockPosition: 'center',
+    ringName: 'whole cloth',
+    isSpiral: true,
+  };
+}
+
+// ── CONNECTION DETECTION ──────────────────────────────────────
+function alreadyConnected(a, b) {
+  for (const c of state.userConnections) {
+    if ((c.a === a && c.b === b) || (c.a === b && c.b === a)) return true;
+  }
+  return false;
+}
+
+function midPointOfLink(link) {
+  return {
+    x: (link.a.x + link.b.x) / 2,
+    y: (link.a.y + link.b.y) / 2,
+    z: (link.a.z + link.b.z) / 2,
+  };
+}
+
+function findConnectionCandidate() {
+  if (state.affectedLinks.length === 0) return null;
+  let best = null;
+  let bestD2 = CONNECTION_PIXEL_THRESHOLD * CONNECTION_PIXEL_THRESHOLD;
+  const affectedSet = new Set(state.affectedLinks);
+  for (const sourceLink of state.affectedLinks) {
+    if (sourceLink.broken) continue;
+    const sm = midPointOfLink(sourceLink);
+    const sScreen = projectToScreen(sm.x, sm.y, sm.z);
+    if (sScreen.z > 1) continue;
+    for (const targetLink of state.crossLinks) {
+      if (targetLink === sourceLink || targetLink.broken) continue;
+      if (affectedSet.has(targetLink)) continue;
+      if (alreadyConnected(sourceLink, targetLink)) continue;
+      const tm = midPointOfLink(targetLink);
+      const tScreen = projectToScreen(tm.x, tm.y, tm.z);
+      if (tScreen.z > 1) continue;
+      const dx = tScreen.x - sScreen.x;
+      const dy = tScreen.y - sScreen.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestD2) {
+        best = { sourceLink, targetLink, distSq: d2 };
+        bestD2 = d2;
+      }
+    }
+  }
+  return best;
+}
+
+// Find faint visual neighbors during a pull — top N nearest words on screen
+function findNearbyLinksDuringPull() {
+  if (state.affectedLinks.length === 0) return [];
+  const sourceLink = state.affectedLinks[0];
+  if (!sourceLink || sourceLink.broken) return [];
+  const sm = midPointOfLink(sourceLink);
+  const sScreen = projectToScreen(sm.x, sm.y, sm.z);
+  if (sScreen.z > 1) return [];
+
+  const candidates = [];
+  const affectedSet = new Set(state.affectedLinks);
+  for (const link of state.crossLinks) {
+    if (link === sourceLink || link.broken) continue;
+    if (affectedSet.has(link)) continue;
+    if (alreadyConnected(sourceLink, link)) continue;
+    const m = midPointOfLink(link);
+    const sp = projectToScreen(m.x, m.y, m.z);
+    if (sp.z > 1) continue;
+    const dx = sp.x - sScreen.x, dy = sp.y - sScreen.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d < 240) candidates.push({ link, dist: d });
+  }
+  candidates.sort((a, b) => a.dist - b.dist);
+  return candidates.slice(0, 5);
+}
+
+function formConnection(linkA, linkB) {
+  const ma = midPointOfLink(linkA);
+  const mb = midPointOfLink(linkB);
+  const cx = (ma.x + mb.x) / 2;
+  const cy = (ma.y + mb.y) / 2;
+  const cz = (ma.z + mb.z) / 2;
+
+  // Sparks radiating outward
+  for (let i = 0; i < 14; i++) {
+    const theta = Math.random() * Math.PI * 2;
+    const phi = (Math.random() - 0.5) * Math.PI;
+    const speed = 4 + Math.random() * 5;
+    state.connectionFlashes.push({
+      x: cx, y: cy, z: cz,
+      vx: speed * Math.cos(theta) * Math.cos(phi),
+      vy: speed * Math.sin(phi),
+      vz: speed * Math.sin(theta) * Math.cos(phi),
+      life: 1.0,
+    });
+  }
+  // Big bright flash along the connection axis
+  state.flashes.push({
+    x1: ma.x, y1: ma.y, z1: ma.z,
+    x2: mb.x, y2: mb.y, z2: mb.z,
+    life: 1.4,
+    isConnect: true,
+  });
+
+  // Generate a fragment about the connection
+  const fragment = makeConnectionFragment(linkA, linkB);
+  state.fragments.push(fragment);
+  addFragmentToScroll(fragment);
+
+  state.userConnections.push({ a: linkA, b: linkB, time: Date.now() });
+  addConnectionToList(linkA, linkB);
+  updatePanel();
+}
+
+function makeConnectionFragment(linkA, linkB) {
+  const wA = linkA.word, wB = linkB.word;
+  const cA = linkA.cat, cB = linkB.cat;
+
+  let variants;
+  if (cA === cB) {
+    variants = [
+      [`${wA} reaches for ${wB} —`, `two ${cA}s align, finally on the same line of cloth`],
+      [`${wA} ↔ ${wB} —`, `the same kind of voice, twice — louder this time`],
+      [`${wA} finds ${wB} —`, `${cA} meets ${cA}: not coincidence, recognition`],
+    ];
+  } else {
+    const pair = [cA, cB].sort().join('+');
+    const specificVariants = {
+      'divine+invisible': [
+        [`${wA} touches ${wB} —`, `the goddess greets the unwritten one`],
+        [`${wA} ↔ ${wB} —`, `myth bends down to the woman never written`],
+        [`${wA} reaches ${wB} —`, `the named one acknowledges the unnamed one; both are in the cloth`],
+      ],
+      'divine+innovator': [
+        [`${wA} touches ${wB} —`, `myth shakes hands with patent`],
+        [`${wA} ↔ ${wB} —`, `the goddess and the inventor were always the same hand`],
+        [`${wA} reaches ${wB} —`, `worship and credit, briefly aligned, briefly redundant`],
+      ],
+      'divine+participant': [
+        [`${wA} touches ${wB} —`, `the named greets the ten thousand unnamed`],
+        [`${wA} ↔ ${wB} —`, `a goddess descends; the worker was always there`],
+        [`${wA} reaches ${wB} —`, `the deified one and the daily one — and the daily one was the source`],
+      ],
+      'divine+spinster': [
+        [`${wA} touches ${wB} —`, `the deified meets the kinship word she was given instead`],
+        [`${wA} ↔ ${wB} —`, `goddess and aunt — the same labour, different names`],
+        [`${wA} reaches ${wB} —`, `the divine and the unmarried find their work was identical`],
+      ],
+      'innovator+invisible': [
+        [`${wA} touches ${wB} —`, `a credit returns to the woman it was taken from`],
+        [`${wA} ↔ ${wB} —`, `the patent finds its actual author, who was unrecorded`],
+        [`${wA} reaches ${wB} —`, `inventor and erased — the same person, different documents`],
+      ],
+      'innovator+participant': [
+        [`${wA} touches ${wB} —`, `the inventor and the worker turn out to be the same hand`],
+        [`${wA} ↔ ${wB} —`, `the credited and the laborious meet at the loom`],
+        [`${wA} reaches ${wB} —`, `the design and the doing — undone here, and reunited`],
+      ],
+      'innovator+spinster': [
+        [`${wA} touches ${wB} —`, `she invented it. they called her a spinster instead.`],
+        [`${wA} ↔ ${wB} —`, `the kinship word was a way to dismiss the inventor word`],
+        [`${wA} reaches ${wB} —`, `inventor and spinster — both names for women who worked`],
+      ],
+      'invisible+participant': [
+        [`${wA} touches ${wB} —`, `one labourer briefly becomes visible to another`],
+        [`${wA} ↔ ${wB} —`, `the unnamed and the unrecorded recognise each other`],
+        [`${wA} reaches ${wB} —`, `two anonymous women, briefly on the same thread, briefly visible`],
+      ],
+      'invisible+spinster': [
+        [`${wA} touches ${wB} —`, `the unnamed and the unmarried recognise each other`],
+        [`${wA} ↔ ${wB} —`, `she had no record. she had no husband. she had the cloth.`],
+        [`${wA} reaches ${wB} —`, `forgotten and unmarried — the cloth held both, holds both`],
+      ],
+      'participant+spinster': [
+        [`${wA} touches ${wB} —`, `the daughter and the aunt, weaving the same cloth`],
+        [`${wA} ↔ ${wB} —`, `kinship was the conscription; the work was the testimony`],
+        [`${wA} reaches ${wB} —`, `the unmarried sister and the working niece — same loom, same hand`],
+      ],
+    };
+    variants = specificVariants[pair] || [
+      [`${wA} touches ${wB} —`, `the ${cA} and the ${cB} agree, briefly, that they are the same thread`],
+      [`${wA} ↔ ${wB} —`, `${cA} reaches ${cB}, briefly — long enough for both to feel it`],
+    ];
+  }
+
+  state.connectionCounter = state.connectionCounter || 0;
+  const tmpl = variants[state.connectionCounter % variants.length];
+  state.connectionCounter++;
+
+  return {
+    lines: tmpl,
+    word: `${wA} ↔ ${wB}`,
+    cat: 'connection',
+    col: '#ffffff',
+    speakerVoice: 'connection',
+    speakerCol: '#ffffff',
+    spokeIdx: linkA.spokeIdx,
+    ringIdx: linkA.ringIdx,
+    angle: linkA.angle,
+    direction: 'connect',
+    pattern: 'user-pattern',
+    clockPosition: 'between',
+    ringName: 'between',
+    isConnection: true,
+    catA: cA, catB: cB,
+  };
+}
+
+function addConnectionToList(linkA, linkB) {
+  const list = document.getElementById('conn-list');
+  if (state.userConnections.length === 1) list.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = 'conn-item';
+  div.innerHTML =
+    `<span class="conn-words"><span style="color:${linkA.col}">${linkA.word}</span> &harr; <span style="color:${linkB.col}">${linkB.word}</span></span>` +
+    `<span class="conn-cats">${linkA.cat[0]}↔${linkB.cat[0]}</span>`;
+  list.insertBefore(div, list.firstChild);
+}
+
+// ── RENDER ─────────────────────────────────────────────────────
+function updateLineGeometries() {
+  // Spokes — smooth curves through center + spoke nodes
+  updateCurvedSpokeLines();
+  // Rings — smooth closed loops through ring nodes
+  updateCurvedRingLines();
+  // Cross-links — short, stay straight
+  updateLineGroup(state.crossLines, state.crossLinks, (s) => colorWithStress(0xf1ebdc, computeCrossStress(s), 0.25));
+
+  // Snap flashes
+  let writeIdx = 0;
+  let activeVerts = 0;
+  for (const f of state.flashes) {
+    state.flashLines.positions[writeIdx++] = f.x1;
+    state.flashLines.positions[writeIdx++] = f.y1;
+    state.flashLines.positions[writeIdx++] = f.z1;
+    state.flashLines.positions[writeIdx++] = f.x2;
+    state.flashLines.positions[writeIdx++] = f.y2;
+    state.flashLines.positions[writeIdx++] = f.z2;
+    const cIdx = (writeIdx - 6);
+    const isConnect = f.isConnect === true;
+    for (let v = 0; v < 2; v++) {
+      const ci = cIdx + v * 3;
+      if (isConnect) {
+        state.flashLines.colors[ci]   = 1 * Math.min(1, f.life);
+        state.flashLines.colors[ci+1] = 1 * Math.min(1, f.life);
+        state.flashLines.colors[ci+2] = 1 * Math.min(1, f.life);
+      } else {
+        state.flashLines.colors[ci]   = 1;
+        state.flashLines.colors[ci+1] = 0.95 * f.life;
+        state.flashLines.colors[ci+2] = 0.7 * f.life;
+      }
+    }
+    activeVerts += 2;
+  }
+  state.flashLines.geom.attributes.position.needsUpdate = true;
+  state.flashLines.geom.attributes.color.needsUpdate = true;
+  state.flashLines.geom.setDrawRange(0, activeVerts);
+
+  // User connection lines (permanent, white, pulsing)
+  let connIdx = 0;
+  let connVerts = 0;
+  const pulse = 0.75 + 0.25 * Math.sin(performance.now() * 0.004);
+  for (const c of state.userConnections) {
+    if (c.a.broken || c.b.broken) continue;
+    const ma = midPointOfLink(c.a);
+    const mb = midPointOfLink(c.b);
+    state.connectionLines.positions[connIdx++] = ma.x;
+    state.connectionLines.positions[connIdx++] = ma.y;
+    state.connectionLines.positions[connIdx++] = ma.z;
+    state.connectionLines.positions[connIdx++] = mb.x;
+    state.connectionLines.positions[connIdx++] = mb.y;
+    state.connectionLines.positions[connIdx++] = mb.z;
+    for (let v = 0; v < 2; v++) {
+      const ci = connIdx - 6 + v * 3;
+      state.connectionLines.colors[ci]   = pulse;
+      state.connectionLines.colors[ci+1] = pulse;
+      state.connectionLines.colors[ci+2] = pulse;
+    }
+    connVerts += 2;
+  }
+  state.connectionLines.geom.attributes.position.needsUpdate = true;
+  state.connectionLines.geom.attributes.color.needsUpdate = true;
+  state.connectionLines.geom.setDrawRange(0, connVerts);
+
+  // Tentative connection preview — hovering over a pulled vertex with an active source set
+  let tentVerts = 0;
+  const previewSrc = state.activeConnectionSource;
+  const previewTgt = state.hoveredLink;
+  if (previewSrc && previewTgt && previewSrc !== previewTgt &&
+      !previewSrc.broken && !previewTgt.broken &&
+      state.pulledLinks.has(previewTgt) &&
+      !alreadyConnected(previewSrc, previewTgt)) {
+    const sm = midPointOfLink(previewSrc);
+    const tm = midPointOfLink(previewTgt);
+    state.tentativeLines.positions[0] = sm.x;
+    state.tentativeLines.positions[1] = sm.y;
+    state.tentativeLines.positions[2] = sm.z;
+    state.tentativeLines.positions[3] = tm.x;
+    state.tentativeLines.positions[4] = tm.y;
+    state.tentativeLines.positions[5] = tm.z;
+    const blink = 0.5 + 0.5 * Math.sin(performance.now() * 0.012);
+    for (let v = 0; v < 2; v++) {
+      state.tentativeLines.colors[v * 3]     = blink;
+      state.tentativeLines.colors[v * 3 + 1] = blink;
+      state.tentativeLines.colors[v * 3 + 2] = blink;
+    }
+    tentVerts = 2;
+  }
+  state.tentativeLines.geom.attributes.position.needsUpdate = true;
+  state.tentativeLines.geom.attributes.color.needsUpdate = true;
+  state.tentativeLines.geom.setDrawRange(0, tentVerts);
+
+  // Proximity lines — faint gold lines to neighbors while pulling
+  let proxIdx = 0;
+  let proxVerts = 0;
+  if (state.proximityLines.length > 0 && state.affectedLinks.length > 0) {
+    const sourceLink = state.affectedLinks[0];
+    if (sourceLink && !sourceLink.broken) {
+      const sm = midPointOfLink(sourceLink);
+      const proxPulse = 0.55 + 0.25 * Math.sin(performance.now() * 0.006);
+      for (const item of state.proximityLines) {
+        if (proxVerts >= state.proximityLineSegs.maxLines * 2) break;
+        if (item.link.broken) continue;
+        const lm = midPointOfLink(item.link);
+        state.proximityLineSegs.positions[proxIdx++] = sm.x;
+        state.proximityLineSegs.positions[proxIdx++] = sm.y;
+        state.proximityLineSegs.positions[proxIdx++] = sm.z;
+        state.proximityLineSegs.positions[proxIdx++] = lm.x;
+        state.proximityLineSegs.positions[proxIdx++] = lm.y;
+        state.proximityLineSegs.positions[proxIdx++] = lm.z;
+        const t = Math.max(0, 1 - item.dist / 240) * proxPulse;
+        const ci = proxIdx - 6;
+        for (let v = 0; v < 2; v++) {
+          state.proximityLineSegs.colors[ci + v*3]     = 0.78 * t;
+          state.proximityLineSegs.colors[ci + v*3 + 1] = 0.62 * t;
+          state.proximityLineSegs.colors[ci + v*3 + 2] = 0.30 * t;
+        }
+        proxVerts += 2;
+      }
+    }
+  }
+  state.proximityLineSegs.geom.attributes.position.needsUpdate = true;
+  state.proximityLineSegs.geom.attributes.color.needsUpdate = true;
+  state.proximityLineSegs.geom.setDrawRange(0, proxVerts);
+
+  // Connection sparks
+  let sparkIdx = 0;
+  let sparkVerts = 0;
+  for (const f of state.connectionFlashes) {
+    if (sparkVerts >= state.sparkLines.maxLines * 2) break;
+    state.sparkLines.positions[sparkIdx++] = f.x - f.vx * 1.5;
+    state.sparkLines.positions[sparkIdx++] = f.y - f.vy * 1.5;
+    state.sparkLines.positions[sparkIdx++] = f.z - f.vz * 1.5;
+    state.sparkLines.positions[sparkIdx++] = f.x;
+    state.sparkLines.positions[sparkIdx++] = f.y;
+    state.sparkLines.positions[sparkIdx++] = f.z;
+    for (let v = 0; v < 2; v++) {
+      const ci = sparkIdx - 6 + v * 3;
+      state.sparkLines.colors[ci]   = f.life;
+      state.sparkLines.colors[ci+1] = f.life;
+      state.sparkLines.colors[ci+2] = f.life;
+    }
+    sparkVerts += 2;
+  }
+  state.sparkLines.geom.attributes.position.needsUpdate = true;
+  state.sparkLines.geom.attributes.color.needsUpdate = true;
+  state.sparkLines.geom.setDrawRange(0, sparkVerts);
+}
+
+function computeStress(s) {
+  // Visual stress: 0 at rest, 1 at 1.6x stretch — visible feedback during pulls
+  return Math.max(0, Math.min(1, ((s.stretch || 1) - 1) / 0.6));
+}
+
+function computeCrossStress(s) {
+  const dx = s.b.x - s.a.x, dy = s.b.y - s.a.y, dz = s.b.z - s.a.z;
+  const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+  // 0 at rest, 1 when dist is double the rest length
+  return Math.max(0, Math.min(1, (dist - s.restLength) / Math.max(s.restLength, 1)));
+}
+
+function colorWithStress(baseHex, stress, intensity = 1) {
+  const r = (baseHex >> 16) & 0xff;
+  const g = (baseHex >> 8) & 0xff;
+  const b = baseHex & 0xff;
+  let nr = r, ng = g, nb = b;
+  if (stress > 0.4) {
+    const t = (stress - 0.4) / 0.6;
+    nr = r + (217 - r) * t;
+    ng = g + (97 - g) * t;
+    nb = b + (73 - b) * t;
+  }
+  const k = (0.4 + 0.6 * intensity) + stress * 0.7;
+  return [(nr / 255) * k, (ng / 255) * k, (nb / 255) * k];
+}
+
+// Spokes as smooth Catmull-Rom curves through center + 8 nodes
+function updateCurvedSpokeLines() {
+  let writeIdx = 0;
+  let activeVerts = 0;
+  const SAMPLES = 64;
+  const pos = state.spokeLines.positions;
+  const col = state.spokeLines.colors;
+
+  for (let i = 0; i < SPOKES; i++) {
+    const points = state.spokeCurvePoints[i];
+    points[0].set(state.centerNode.x, state.centerNode.y, state.centerNode.z);
+    for (let r = 0; r < RINGS; r++) {
+      const n = state.spokeNodes[i][r];
+      points[r + 1].set(n.x, n.y, n.z);
+    }
+
+    const curve = new THREE.CatmullRomCurve3(points, false, 'centripetal', 0.5);
+    const sampled = curve.getPoints(SAMPLES);
+    const springs = state.spokeSpringMap[i];
+    const numSprings = springs.length;
+
+    for (let s = 0; s < SAMPLES; s++) {
+      const tMid = (s + 0.5) / SAMPLES;
+      const segIdx = Math.min(numSprings - 1, Math.floor(tMid * numSprings));
+      const spring = springs[segIdx];
+      const stress = computeStress(spring);
+      const c = colorWithStress(0xc9943a, stress);
+
+      const p1 = sampled[s];
+      const p2 = sampled[s + 1];
+      pos[writeIdx++] = p1.x;
+      pos[writeIdx++] = p1.y;
+      pos[writeIdx++] = p1.z;
+      pos[writeIdx++] = p2.x;
+      pos[writeIdx++] = p2.y;
+      pos[writeIdx++] = p2.z;
+      const cIdx = writeIdx - 6;
+      for (let v = 0; v < 2; v++) {
+        col[cIdx + v*3]     = c[0];
+        col[cIdx + v*3 + 1] = c[1];
+        col[cIdx + v*3 + 2] = c[2];
+      }
+      activeVerts += 2;
+    }
+  }
+  state.spokeLines.geom.attributes.position.needsUpdate = true;
+  state.spokeLines.geom.attributes.color.needsUpdate = true;
+  state.spokeLines.geom.setDrawRange(0, activeVerts);
+}
+
+// Rings as smooth closed Catmull-Rom loops through 30 nodes
+function updateCurvedRingLines() {
+  let writeIdx = 0;
+  let activeVerts = 0;
+  const SAMPLES = 90;
+  const pos = state.ringLines.positions;
+  const col = state.ringLines.colors;
+
+  for (let r = 0; r < RINGS; r++) {
+    const points = state.ringCurvePoints[r];
+    for (let i = 0; i < SPOKES; i++) {
+      const n = state.ringNodes[r][i];
+      points[i].set(n.x, n.y, n.z);
+    }
+
+    const curve = new THREE.CatmullRomCurve3(points, true, 'centripetal', 0.5);
+    const sampled = curve.getPoints(SAMPLES);
+    const springs = state.ringSpringMap[r];
+
+    for (let s = 0; s < SAMPLES; s++) {
+      const tMid = (s + 0.5) / SAMPLES;
+      const segIdx = Math.floor(tMid * SPOKES) % SPOKES;
+      const spring = springs[segIdx];
+      const stress = computeStress(spring);
+      const c = colorWithStress(0xf1ebdc, stress);
+
+      const p1 = sampled[s];
+      const p2 = sampled[s + 1];  // sampled has SAMPLES+1 points; for closed loop, last == first
+      pos[writeIdx++] = p1.x;
+      pos[writeIdx++] = p1.y;
+      pos[writeIdx++] = p1.z;
+      pos[writeIdx++] = p2.x;
+      pos[writeIdx++] = p2.y;
+      pos[writeIdx++] = p2.z;
+      const cIdx = writeIdx - 6;
+      for (let v = 0; v < 2; v++) {
+        col[cIdx + v*3]     = c[0];
+        col[cIdx + v*3 + 1] = c[1];
+        col[cIdx + v*3 + 2] = c[2];
+      }
+      activeVerts += 2;
+    }
+  }
+  state.ringLines.geom.attributes.position.needsUpdate = true;
+  state.ringLines.geom.attributes.color.needsUpdate = true;
+  state.ringLines.geom.setDrawRange(0, activeVerts);
+}
+
+function updateLineGroup(group, springs, colorFn) {
+  let writeIdx = 0;
+  let activeVerts = 0;
+  for (let i = 0; i < springs.length; i++) {
+    const s = springs[i];
+    if (s.broken) continue;
+    const c = colorFn(s, i);
+    group.positions[writeIdx++] = s.a.x;
+    group.positions[writeIdx++] = s.a.y;
+    group.positions[writeIdx++] = s.a.z;
+    group.positions[writeIdx++] = s.b.x;
+    group.positions[writeIdx++] = s.b.y;
+    group.positions[writeIdx++] = s.b.z;
+    const cIdx = (writeIdx - 6);
+    for (let v = 0; v < 2; v++) {
+      group.colors[cIdx + v * 3]     = c[0];
+      group.colors[cIdx + v * 3 + 1] = c[1];
+      group.colors[cIdx + v * 3 + 2] = c[2];
+    }
+    activeVerts += 2;
+  }
+  group.geom.attributes.position.needsUpdate = true;
+  group.geom.attributes.color.needsUpdate = true;
+  group.geom.setDrawRange(0, activeVerts);
+}
+
+function updateSpritePositions() {
+  const t = performance.now() * 0.002;
+  for (let i = 0; i < state.crossLinks.length; i++) {
+    const link = state.crossLinks[i];
+    const sp = state.wordSprites[i];
+    const halo = state.haloSprites[i];
+    if (!sp) continue;
+    if (link.broken) {
+      sp.visible = false;
+      if (halo) halo.visible = false;
+      continue;
+    }
+    const mx = (link.a.x + link.b.x) / 2;
+    const my = (link.a.y + link.b.y) / 2;
+    const mz = (link.a.z + link.b.z) / 2;
+    sp.position.set(mx, my, mz);
+    const stress = computeCrossStress(link);
+    sp.material.opacity = 1 - stress * 0.5;
+
+    if (halo) {
+      halo.position.set(mx, my, mz);
+      // Gentle pulse (each halo desynchronised by index)
+      const pulse = 0.35 + 0.18 * Math.sin(t + i * 0.31);
+      let opacity = pulse;
+      // Pulled vertices retain a slightly persistent glow
+      if (state.pulledLinks.has(link)) opacity = Math.max(opacity, 0.55);
+      // Hovered link — brighter
+      if (state.hoveredLink === link) opacity = 0.95;
+      // Active connection source — fully bright
+      if (state.activeConnectionSource === link) opacity = 1.0;
+      // Grabbed (one of its endpoints) — fully bright
+      if (state.grabbedNode && (link.a === state.grabbedNode || link.b === state.grabbedNode)) {
+        opacity = 1.0;
+      }
+      halo.material.opacity = opacity;
+      // Scale tiers: pulled = larger, hovered = larger still, active source = largest
+      let targetScale = 60;
+      if (state.pulledLinks.has(link)) targetScale = 70;
+      if (state.hoveredLink === link) targetScale = 80;
+      if (state.activeConnectionSource === link) targetScale = 90;
+      if (state.grabbedNode && (link.a === state.grabbedNode || link.b === state.grabbedNode)) {
+        targetScale = 80;
+      }
+      halo.scale.x += (targetScale - halo.scale.x) * 0.15;
+      halo.scale.y = halo.scale.x;
+    }
+  }
+}
+
+// ── INTERACTION ────────────────────────────────────────────────
+function projectToScreen(x, y, z) {
+  const v = new THREE.Vector3(x, y, z).project(state.camera);
+  const w = state.renderer.domElement.clientWidth;
+  const h = state.renderer.domElement.clientHeight;
+  return { x: (v.x + 1) * 0.5 * w, y: (1 - v.y) * 0.5 * h, z: v.z };
+}
+
+function findNearestNodeOnScreen(mx, my) {
+  let best = null;
+  let bestD = GRAB_RADIUS_PIXELS * GRAB_RADIUS_PIXELS;
+  const allNodes = [];
+  for (const t of state.spokeNodes) for (const n of t) allNodes.push(n);
+  for (const t of state.ringNodes) for (const n of t) allNodes.push(n);
+  for (const n of allNodes) {
+    if (n.fixed) continue;
+    const sp = projectToScreen(n.x, n.y, n.z);
+    if (sp.z < -1 || sp.z > 1) continue;
+    const dx = sp.x - mx, dy = sp.y - my;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < bestD) { best = n; bestD = d2; }
+  }
+  return best;
+}
+
+function getDragPlanePoint(mx, my) {
+  const w = state.renderer.domElement.clientWidth;
+  const h = state.renderer.domElement.clientHeight;
+  const ndc = new THREE.Vector2((mx / w) * 2 - 1, -(my / h) * 2 + 1);
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(ndc, state.camera);
+  const camDir = new THREE.Vector3();
+  state.camera.getWorldDirection(camDir);
+  const plane = new THREE.Plane();
+  const grabPos = new THREE.Vector3(state.grabbedNode.x, state.grabbedNode.y, state.grabbedNode.z);
+  plane.setFromNormalAndCoplanarPoint(camDir.clone().negate(), grabPos);
+  const intersection = new THREE.Vector3();
+  if (raycaster.ray.intersectPlane(plane, intersection)) {
+    return { x: intersection.x, y: intersection.y, z: intersection.z };
+  }
+  return null;
+}
+
+function getCanvasMouseCoords(clientX, clientY) {
+  const rect = state.renderer.domElement.getBoundingClientRect();
+  return { x: clientX - rect.left, y: clientY - rect.top };
+}
+
+function onMouseDown(e) {
+  const { x, y } = getCanvasMouseCoords(e.clientX, e.clientY);
+  state.dragStartX = x; state.dragStartY = y;
+  state.mouseX = x; state.mouseY = y;
+  state.isDown = true;
+  document.getElementById('instructions-strip').style.opacity = '0.6';
+
+  // Center first — drag to spiral the whole cloth
+  if (isOverCenter(x, y)) {
+    state.isSpiralPulling = true;
+    state.spiralStartMouseY = y;
+    state.currentSpiralAmount = 0;
+    snapshotPositionsForSpiral();
+    document.getElementById('cursor').classList.add('spiral');
+    document.getElementById('cursor').classList.remove('grab', 'rotate', 'tear', 'connect');
+    return;
+  }
+
+  const node = findNearestNodeOnScreen(x, y);
+  if (node) {
+    state.isGrabbing = true;
+    state.grabbedNode = node;
+    node.grabbed = true;
+    state.affectedLinks = state.crossLinks.filter(l => !l.broken && (l.a === node || l.b === node));
+    document.getElementById('cursor').classList.add('tear');
+    document.getElementById('cursor').classList.remove('grab', 'rotate', 'connect', 'spiral');
+  } else {
+    state.isOrbiting = true;
+    state.orbitStartTheta = state.cameraTheta;
+    state.orbitStartPhi = state.cameraPhi;
+    document.getElementById('cursor').classList.add('rotate');
+    document.getElementById('cursor').classList.remove('grab', 'tear', 'connect', 'spiral');
+  }
+}
+
+function onMouseMove(e) {
+  const cursorEl = document.getElementById('cursor');
+  cursorEl.style.left = e.clientX + 'px';
+  cursorEl.style.top = e.clientY + 'px';
+
+  const { x, y } = getCanvasMouseCoords(e.clientX, e.clientY);
+  state.mouseX = x; state.mouseY = y;
+
+  if (state.isSpiralPulling) {
+    // Vertical drag distance from start → spiral amount (gentler control)
+    const dy = state.spiralStartMouseY - y;  // dragging up → positive
+    const amount = Math.max(-1.4, Math.min(1.4, dy * 0.0065));
+    state.currentSpiralAmount = amount;
+    applySpiralTransform(amount);
+    return;
+  }
+
+  if (state.isGrabbing && state.grabbedNode) {
+    const p = getDragPlanePoint(x, y);
+    if (p) {
+      state.grabbedNode.x = p.x;
+      state.grabbedNode.y = p.y;
+      state.grabbedNode.z = p.z;
+    }
+    state.proximityLines = findNearbyLinksDuringPull();
+    cursorEl.classList.add('tear');
+    cursorEl.classList.remove('connect');
+  } else if (state.isOrbiting) {
+    const dx = x - state.dragStartX;
+    const dy = y - state.dragStartY;
+    state.cameraTheta = state.orbitStartTheta - dx * 0.005;
+    state.cameraPhi = Math.max(-Math.PI/2 + 0.1, Math.min(Math.PI/2 - 0.1, state.orbitStartPhi + dy * 0.005));
+    updateCamera();
+    updateNorthDisplay();
+  } else if (!state.isDown) {
+    // Hover state — center first, then nodes
+    if (isOverCenter(x, y)) {
+      cursorEl.classList.add('spiral');
+      cursorEl.classList.remove('grab', 'tear', 'rotate', 'connect');
+      state.hoveredLink = null;
+      state.hoverNode = null;
+      return;
+    }
+    const node = findNearestNodeOnScreen(x, y);
+    state.hoverNode = node;
+    state.hoveredLink = findHoveredLink(x, y);
+    // Connection-target hint: if active source set + hovering a different pulled link
+    if (state.activeConnectionSource && state.hoveredLink &&
+        state.hoveredLink !== state.activeConnectionSource &&
+        state.pulledLinks.has(state.hoveredLink) &&
+        !alreadyConnected(state.activeConnectionSource, state.hoveredLink)) {
+      cursorEl.classList.add('connect');
+      cursorEl.classList.remove('grab', 'tear', 'rotate', 'spiral');
+      return;
+    }
+    if (node) {
+      cursorEl.classList.add('grab');
+      cursorEl.classList.remove('tear', 'rotate', 'connect', 'spiral');
+    } else {
+      cursorEl.classList.remove('grab', 'tear', 'rotate', 'connect', 'spiral');
+    }
+  }
+}
+
+// Find which cross-link is nearest the cursor in screen space (for halo highlight)
+function findHoveredLink(mx, my) {
+  let best = null;
+  let bestD2 = (GRAB_RADIUS_PIXELS + 10) * (GRAB_RADIUS_PIXELS + 10);
+  for (const link of state.crossLinks) {
+    if (link.broken) continue;
+    const m = midPointOfLink(link);
+    const sp = projectToScreen(m.x, m.y, m.z);
+    if (sp.z > 1) continue;
+    const dx = sp.x - mx, dy = sp.y - my;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < bestD2) { best = link; bestD2 = d2; }
+  }
+  return best;
+}
+
+function onMouseUp(e) {
+  const dragDist = Math.hypot(
+    state.mouseX - state.dragStartX,
+    state.mouseY - state.dragStartY
+  );
+  const wasTap = dragDist < MIN_PULL_PIXELS;
+
+  // Spiral release
+  if (state.isSpiralPulling) {
+    const finalAmount = state.currentSpiralAmount || 0;
+    if (Math.abs(finalAmount) > 0.1) {
+      const direction = finalAmount > 0 ? 'up' : 'down';
+      const fragment = makeSpiralFragment(direction);
+      state.fragments.push(fragment);
+      addFragmentToScroll(fragment);
+      state.verticalPullsSinceSonnet++;
+      state.sonnetWordsBuffer.push({ word: 'whole cloth', cat: 'spiral', col: '#c9943a', direction });
+      if (state.verticalPullsSinceSonnet >= SONNET_TRIGGER) {
+        setTimeout(() => triggerSonnet(), 350);
+      }
+      updatePanel();
+    } else {
+      // Tap on center — clear active source
+      state.activeConnectionSource = null;
+    }
+    state.isSpiralPulling = false;
+    state.currentSpiralAmount = 0;
+    rebaselineAll();
+    state.isDown = false;
+    document.getElementById('cursor').classList.remove('spiral', 'rotate', 'tear', 'connect');
+    return;
+  }
+
+  if (state.isGrabbing && state.grabbedNode) {
+    const link = state.affectedLinks[0] || null;
+
+    if (!wasTap && link) {
+      // Real pull — generate verse, count toward sonnet, set as active source
+      const direction = classifyPullDirection();
+      const northVoice = getNorthCategory();
+      const fragment = makeFragment(link, direction, northVoice);
+      state.fragments.push(fragment);
+      addFragmentToScroll(fragment);
+
+      state.verticalPullsSinceSonnet++;
+      state.sonnetWordsBuffer.push({
+        word: link.word, cat: link.cat, col: link.col, direction
+      });
+      if (state.verticalPullsSinceSonnet >= SONNET_TRIGGER) {
+        setTimeout(() => triggerSonnet(), 350);
+      }
+      updatePanel();
+
+      state.pulledLinks.add(link);
+      state.activeConnectionSource = link;
+    } else if (wasTap && link) {
+      // Tap on a vertex — manual connection state machine
+      if (link === state.activeConnectionSource) {
+        // Tap the source itself → deselect
+        state.activeConnectionSource = null;
+      } else if (state.activeConnectionSource &&
+                 state.pulledLinks.has(link) &&
+                 !alreadyConnected(state.activeConnectionSource, link)) {
+        // Tap a different pulled vertex → form the connection
+        formConnection(state.activeConnectionSource, link);
+        state.activeConnectionSource = null;
+      } else if (state.pulledLinks.has(link)) {
+        // Tap a pulled vertex with no active source → make it the new source
+        state.activeConnectionSource = link;
+      }
+      // Tap on a non-pulled vertex: do nothing (don't clear, don't connect)
+    }
+
+    state.grabbedNode.grabbed = false;
+    state.grabbedNode = null;
+    state.isGrabbing = false;
+    state.affectedLinks = [];
+    state.proximityLines = [];
+    rebaselineAll();
+  }
+
+  if (state.isOrbiting) {
+    if (wasTap) {
+      // Tap on empty space → clear active source
+      state.activeConnectionSource = null;
+    }
+    state.isOrbiting = false;
+  }
+
+  state.isDown = false;
+  document.getElementById('cursor').classList.remove('tear', 'rotate', 'connect');
+}
+
+function onTouchStart(e) {
+  e.preventDefault();
+  if (e.touches.length === 2) {
+    // Begin pinch zoom
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    state.pinchStartDist = Math.hypot(dx, dy);
+    state.pinchStartCameraDist = state.cameraDistance;
+    state.isPinching = true;
+    return;
+  }
+  if (e.touches.length === 0) return;
+  const t = e.touches[0];
+  onMouseDown({ clientX: t.clientX, clientY: t.clientY });
+}
+function onTouchMove(e) {
+  if (state.isPinching && e.touches.length === 2) {
+    e.preventDefault();
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const newDist = Math.hypot(dx, dy);
+    const ratio = state.pinchStartDist / Math.max(1, newDist);
+    state.cameraDistance = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, state.pinchStartCameraDist * ratio));
+    updateCamera();
+    return;
+  }
+  if (state.isDown) e.preventDefault();
+  if (e.touches.length === 0) return;
+  const t = e.touches[0];
+  onMouseMove({ clientX: t.clientX, clientY: t.clientY });
+}
+function onTouchEnd(e) {
+  if (state.isPinching && (e.touches?.length ?? 0) < 2) {
+    state.isPinching = false;
+  }
+  onMouseUp({});
+}
+
+// ── NORTH VOICE ────────────────────────────────────────────────
+function getNorthCategory() {
+  const catKeys = Object.keys(CATEGORIES);
+  const spokesPerCat = SPOKES / catKeys.length;
+  let bestKey = null;
+  let bestScreenY = Infinity;
+  for (let ci = 0; ci < catKeys.length; ci++) {
+    const centerSpokeIdx = (ci + 0.5) * spokesPerCat;
+    const angle = (centerSpokeIdx / SPOKES) * Math.PI * 2;
+    const radius = WORLD_OUTER_R * 0.8;
+    const sp = projectToScreen(Math.cos(angle) * radius, Math.sin(angle) * radius, 0);
+    if (sp.z > 1) continue;
+    if (sp.y < bestScreenY) { bestScreenY = sp.y; bestKey = catKeys[ci]; }
+  }
+  return bestKey || 'invisible';
+}
+
+function updateNorthDisplay() {
+  const cat = getNorthCategory();
+  const info = CATEGORIES[cat];
+  const display = document.getElementById('north-display');
+  const voice = document.getElementById('nd-voice');
+  display.style.borderLeftColor = info.hex;
+  voice.textContent = info.label;
+  voice.style.color = info.hex;
+}
+
+// ── PANEL ──────────────────────────────────────────────────────
+function updatePanel() {
+  const intact = state.totalCrossLinks - state.brokenCrossLinks;
+  const integrity = (intact / state.totalCrossLinks) * 100;
+  document.getElementById('integrity-num').textContent = integrity.toFixed(0) + '%';
+  document.getElementById('threads-intact').textContent = intact;
+  // "Verses written" reflects total fragments, not broken threads
+  document.getElementById('threads-broken').textContent = state.fragments.length;
+  document.getElementById('break-bar').style.width = (100 - integrity) + '%';
+  document.getElementById('frag-count').textContent = state.fragments.length;
+  document.getElementById('conn-count').textContent = state.userConnections.length;
+  document.getElementById('read-btn').disabled = state.fragments.length < 1;
+
+  document.getElementById('sonnet-num').textContent = state.verticalPullsSinceSonnet;
+  const ticks = document.getElementById('sonnet-bar').children;
+  for (let i = 0; i < ticks.length; i++) {
+    ticks[i].classList.toggle('filled', i < state.verticalPullsSinceSonnet);
+  }
+}
+
+// ── FRAGMENTS ─────────────────────────────────────────────────
+const FRAGMENT_TEMPLATES = {
+  divine: [
+    ["${word} pulled loose —", "the goddess remembers her own name"],
+    ["${word} from the rim where she was fixed —", "a star, named, then untaught"],
+    ["${word} unspooled —", "the wheel returns to her hand"],
+    ["she who first wove ${word}", "now tears free of being remembered wrong"],
+    ["${word} unraveled from the rim —", "a goddess no longer needs to be witnessed"],
+    ["${word} fell from the cloth —", "the temple was always temporary"],
+    ["watch ${word} go —", "her divinity was a story; the story is yours now"],
+    ["${word}, originator —", "the wheel goes on without her, less for it"],
+  ],
+  innovator: [
+    ["${word} fell —", "they had spelled her wrong anyway"],
+    ["${word} dropped from the wheel —", "the patent goes back to her hands"],
+    ["you tore ${word} loose —", "she was always going to leave"],
+    ["${word} unsigned —", "the inventor's name returning, decades late"],
+    ["${word} pulled out —", "the inventor was missing from her own patent"],
+    ["${word} from the threadwork —", "her name was a footnote that grew"],
+    ["watch ${word} drop —", "she invented this thread; she did not name it"],
+    ["${word}, attributed at last —", "credit, finally, to the first fingers"],
+  ],
+  participant: [
+    ["${word} slipped —", "one of ten thousand hands releases"],
+    ["${word} let go of the loom at last —", "she has held it for centuries"],
+    ["${word} from the morning shift —", "free of the warp, finally free"],
+    ["${word} cut off mid-stitch —", "the daily labour takes a breath"],
+    ["${word} eased loose —", "one of ten thousand, all named once at home"],
+    ["${word} from the day shift —", "her hands were the loom, briefly"],
+    ["watch ${word} go —", "there is no monument to her wrist"],
+    ["${word}, unwoven —", "the daily labour acknowledges itself"],
+  ],
+  spinster: [
+    ["${word} unraveled —", "her wheel was always spinning out of sight"],
+    ["${word} from the chair by the fire —", "she stops pretending to listen"],
+    ["${word} cut from the cloth —", "the distaff falls quietly"],
+    ["${word} — the unmarried one", "claims her thread back from the family"],
+    ["${word} from the unmarried corner —", "she spun more than her sisters and was named less"],
+    ["${word} pulled clean —", "she was the household; they called her surplus"],
+    ["${word}, dropped —", "aunt, distaff, widow — all words for 'still working'"],
+    ["${word} loosened —", "the wheel without her looks the same and is not"],
+  ],
+  invisible: [
+    ["${word} dropped —", "no one had written her there to begin with"],
+    ["${word} from the unrecorded —", "a hole the size of her name"],
+    ["${word} let go —", "you cannot lose what was already missing"],
+    ["${word} surfacing only as it leaves —", "absence with a sound this time"],
+    ["${word} fell —", "no record exists; the thread does"],
+    ["${word} pulled from nothing —", "her absence has texture now"],
+    ["${word} from the unwritten —", "the cloth knew, even when no one wrote it down"],
+    ["${word} let go —", "a name we will never have; a pull we just made"],
+  ],
+};
+
+function clockHour(angle) {
+  const hours = ['three','four','five','six','seven','eight','nine','ten','eleven','twelve','one','two'];
+  let a = angle;
+  while (a < 0) a += Math.PI * 2;
+  return hours[Math.floor((a % (Math.PI*2)) / (Math.PI*2) * 12) % 12];
+}
+function ringName(r) {
+  if (r === 0) return 'closest to the heart';
+  if (r === RINGS - 1) return 'at the rim';
+  return `ring ${r + 1}`;
+}
+
+function makeFragment(link, direction, northVoice) {
+  const templates = FRAGMENT_TEMPLATES[northVoice] || FRAGMENT_TEMPLATES.invisible;
+  state.fragmentVoiceCounter[northVoice] = state.fragmentVoiceCounter[northVoice] || 0;
+  const tmpl = templates[state.fragmentVoiceCounter[northVoice] % templates.length];
+  state.fragmentVoiceCounter[northVoice]++;
+  const lines = tmpl.map(line => line.replace('${word}', link.word));
+  return {
+    lines,
+    word: link.word, cat: link.cat, col: link.col,
+    speakerVoice: northVoice,
+    speakerCol: CATEGORIES[northVoice].hex,
+    spokeIdx: link.spokeIdx, ringIdx: link.ringIdx,
+    angle: link.angle, direction: direction || 'still',
+    pattern: link.pattern,
+    clockPosition: clockHour(link.angle),
+    ringName: ringName(link.ringIdx),
+  };
+}
+
+function addFragmentToScroll(fr) {
+  const scroll = document.getElementById('verse-scroll');
+  if (state.fragments.length === 1) scroll.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = 'fragment' + (fr.isConnection ? ' fragment-connect' : '');
+  div.style.borderLeftColor = fr.speakerCol;
+  const meta = document.createElement('div');
+  meta.className = 'fr-meta';
+  let metaInner;
+  if (fr.isSpiral) {
+    const arrow = fr.direction === 'up' ? '↑' : '↓';
+    metaInner =
+      `<span><span class="fr-dir" style="color:#c9943a">⟳ spiral ${arrow}</span> <span style="color:#c9943a">whole cloth</span></span>` +
+      `<span>your spiral pull</span>`;
+  } else if (fr.isConnection) {
+    metaInner =
+      `<span><span class="fr-dir" style="color:#fff">↔ connect</span> <span style="color:${CATEGORIES[fr.catA]?.hex||'#fff'}">${fr.catA}</span> &harr; <span style="color:${CATEGORIES[fr.catB]?.hex||'#fff'}">${fr.catB}</span></span>` +
+      `<span>your weave-pattern</span>`;
+  } else {
+    const dirArrow = ({ up: '↑ up', down: '↓ down', left: '← left', right: '→ right', diagonal: '⤢ diag', still: '· still' })[fr.direction] || fr.direction;
+    metaInner =
+      `<span><span class="fr-dir" style="color:${fr.speakerCol}">${dirArrow}</span> <span style="color:${fr.col}">${fr.cat}</span> &rarr; <span style="color:${fr.speakerCol}">${fr.speakerVoice}</span></span>` +
+      `<span>${fr.pattern} · ${fr.ringName} · ${fr.clockPosition}</span>`;
+  }
+  meta.innerHTML = metaInner;
+  div.appendChild(meta);
+  for (const line of fr.lines) {
+    const ln = document.createElement('span');
+    ln.className = 'fr-line';
+    ln.textContent = line;
+    div.appendChild(ln);
+  }
+  scroll.insertBefore(div, scroll.firstChild);
+  scroll.scrollTop = 0;
+}
+
+// ── SONNET ────────────────────────────────────────────────────
+const SONNET_TEMPLATES = {
+  divine: [
+    // Variant 0 — narrative declarative
+    (w) => [
+      `In the wheel you pulled ${w[0]} from her place at the rim. She had been a goddess once. The cloth had spelled her differently.`,
+      `Then ${w[1]} loosened, and the temple lost a column. You may not have meant to. Or perhaps you did.`,
+      `${w[2]} fell next, and the divine names began to speak in lowercase. Stories she had told became stories told about her.`,
+      `${w[3] || w[0]} let go without resistance — she had been ready. The wheel kept turning while you tore.`,
+      null,
+      `What is a goddess unspooled? A thread, like any other.`,
+      `What is a temple in your hands? A pile of fibres, a pattern someone wrote.`,
+      `${w[4] || w[1]} returns now — not as worship, but as material.`,
+      `${w[5] || w[2]} returns now — not as legend, but as cloth.`,
+      null,
+      `You are not the first to undo her. You will not be the last.`,
+      `The four of them — ${w[0]}, ${w[1]}, ${w[2]}, ${w[3] || w[0]} — return as cloth, not as worship.`,
+      null,
+      `She, like the wheel, was always turning. She, like you, will weave again.`,
+    ],
+    // Variant 1 — oracular questions
+    (w) => [
+      `What was ${w[0]}? Once a name; now a fibre between your fingers.`,
+      `What is ${w[0]} now? A choice, briefly: tighten or release.`,
+      `${w[1]} dropped, and the answer kept loosening into other questions.`,
+      `${w[2]} dropped, and the questions began to spell each other.`,
+      null,
+      `Were the goddesses ever at the rim? Or did the cloth put them there for safekeeping?`,
+      `If the rim ends, do they end too — or do they slip into the spaces between the threads?`,
+      `${w[3] || w[0]} answers from one of those spaces now.`,
+      `${w[4] || w[1]} answers from another.`,
+      null,
+      `No oracle is required. The cloth has been telling you all along.`,
+      `Pulled, ${w[0]} becomes a sentence; pulled, ${w[1]} becomes a clause.`,
+      null,
+      `The wheel was a question. You are the closest thing it has to an answer.`,
+    ],
+    // Variant 2 — litany
+    (w) => [
+      `${w[0]}, the originator.`,
+      `${w[1]}, the inventress whose myth outran her name.`,
+      `${w[2]}, the deified.`,
+      `${w[3] || w[0]}, the mythologised — and now: unmade by you.`,
+      null,
+      `None of them asked to be put in the wheel.`,
+      `All of them ended up there, slightly wrong.`,
+      `The wheel keeps the name; the cloth keeps the hand.`,
+      `You have just pulled the hand back through the cloth.`,
+      null,
+      `${w[4] || w[1]}, the goddess of all the small unwitnessed weavings.`,
+      `${w[5] || w[2]}, the patron of every unrecorded knot.`,
+      null,
+      `What returns is not the worship. What returns is the work — and the work was always enough.`,
+    ],
+  ],
+  innovator: [
+    // Variant 0 — narrative
+    (w) => [
+      `You pulled ${w[0]} loose from the rim where they had pinned her credit. She had patented it under her brother's name. He died wealthy.`,
+      `${w[1]} fell next — another invention attributed elsewhere. The historical record loosens slowly, then all at once.`,
+      `${w[2]} dropped, and a third claim came undone. The footnotes are revising themselves.`,
+      `${w[3] || w[0]} unsigned — the inventor's name returning, decades late, in the wrong tense.`,
+      null,
+      `She built the loom. She drew the diagrams. She tested the cam.`,
+      `${w[4] || w[1]} was hers. ${w[5] || w[2]} was hers. The patent office misspelled them, then forgot them.`,
+      `You cannot give back what they took. But you can tear what they wrote.`,
+      `Each thread you pull is a citation correcting itself.`,
+      null,
+      `${w[0]}, ${w[1]}, ${w[2]} — credited at last to a hand that has been dust two centuries.`,
+      `The wheel does not care who invented the wheel.`,
+      null,
+      `The wheel cares only for the next turning. The next pulling. The next name reclaimed.`,
+    ],
+    // Variant 1 — forensic / court
+    (w) => [
+      `Exhibit one: ${w[0]}. The patent was filed under another name. The cloth knows whose hands.`,
+      `Exhibit two: ${w[1]}. Attribution: contested. Resolution: pulled.`,
+      `Exhibit three: ${w[2]}. Witness statements suggest she did the thinking; the brother received the cheque.`,
+      `Exhibit four: ${w[3] || w[0]}. The court is the loom now.`,
+      null,
+      `Cross-examination: who designed the cam? She did.`,
+      `Who tested the iteration? She did.`,
+      `${w[4] || w[1]} — invented in 1827, attributed in 1828, forgotten in 1829.`,
+      `${w[5] || w[2]} — same year, same forgetting.`,
+      null,
+      `The historical record loosens slowly, then all at once.`,
+      `The cloth, however, has been ready for centuries.`,
+      null,
+      `Verdict: the inventor is the woman who was working. The credit returns through the pull.`,
+    ],
+    // Variant 2 — catalogue / inventory
+    (w) => [
+      `In the inventory of the credited:`,
+      `${w[0]}, who had no patent of her own —`,
+      `${w[1]}, whose patent bore another's signature —`,
+      `${w[2]}, whose contribution was reduced to "assisted" —`,
+      null,
+      `In the inventory of the cloth:`,
+      `${w[3] || w[0]}'s loom redesign, woven into the warp itself.`,
+      `${w[4] || w[1]}'s spinning frame, threaded through the weft.`,
+      `${w[5] || w[2]}'s carding mechanism, now in the structure of the cloth.`,
+      null,
+      `The inventory of the credited is the shorter one.`,
+      `The inventory of the cloth is everything.`,
+      null,
+      `You pulled the cloth. The cloth offered up its inventory in return.`,
+    ],
+  ],
+  participant: [
+    // Variant 0 — narrative shift
+    (w) => [
+      `${w[0]} let go of the loom this morning. She has held it for two thousand years. No one wrote her name down.`,
+      `${w[1]} slipped from her hands next. There were ten thousand more like her. There still are.`,
+      `${w[2]} stopped weaving mid-stitch. The cloth doesn't care. The cloth was always going to outlive her.`,
+      `${w[3] || w[0]} cut her thread cleanly. She had been a daughter, a sister, a shift-worker, a footnote.`,
+      null,
+      `The morning shift releases ${w[4] || w[1]}. The evening shift releases ${w[5] || w[2]}.`,
+      `In between, the loom keeps speaking — but not in their voices.`,
+      `What does it mean to make something for centuries and never sign it?`,
+      `What does it mean to be one of ten thousand and still be only one?`,
+      null,
+      `${w[0]}, ${w[1]}, ${w[2]}, ${w[3] || w[0]} — none of them signed the cloth. The cloth signed itself with their absence.`,
+      `You can hear them now in the unraveling. You could not hear them before.`,
+      null,
+      `The labour was always the verse. We just had to tear it open to read it.`,
+    ],
+    // Variant 1 — collective "we"
+    (w) => [
+      `We who held ${w[0]} for hours. We who held it for years. We let go, this morning, this hour, this pull.`,
+      `We who carded ${w[1]}. We who spun it. We who passed it through the heddle and never signed it.`,
+      `We who took the bobbin, the shuttle, the daily wage — and were not asked our names.`,
+      `We who released ${w[3] || w[0]}, and you who watched us release it.`,
+      null,
+      `There were ten thousand of us. There still are.`,
+      `In the morning, ${w[4] || w[1]}. In the evening, ${w[5] || w[2]}.`,
+      `In between, the loom keeps speaking — but not always in our voice.`,
+      `Today, briefly, the loom speaks in your voice. We are listening.`,
+      null,
+      `${w[0]}, ${w[1]}, ${w[2]}, ${w[3] || w[0]} — handhold names. Not the names we used at home.`,
+      `The names we used at home were never asked for.`,
+      null,
+      `For a moment, the asking is happening. We did the work. Now, briefly, we are heard.`,
+    ],
+    // Variant 2 — loom-as-witness
+    (w) => [
+      `The loom remembers ${w[0]}. The loom remembers her wrist.`,
+      `The loom remembers ${w[1]}. The loom remembers her cough.`,
+      `The loom remembers ${w[2]}. The loom remembers the song she sang.`,
+      `The loom remembers ${w[3] || w[0]}, and forgets nothing — though it cannot speak.`,
+      null,
+      `The loom is older than the writing about it.`,
+      `The loom is older than the museum.`,
+      `The loom does not need a record. The loom IS the record.`,
+      `Each thread is a name you do not have access to.`,
+      null,
+      `When you pulled ${w[4] || w[1]}, the loom answered with a click only the loom and her grandmother would recognise.`,
+      `When you pulled ${w[5] || w[2]}, the loom said her name in the language of mechanism.`,
+      null,
+      `The mechanism is the testimony. The testimony is intact. The testimony is yours, briefly, in your fingers.`,
+    ],
+  ],
+  spinster: [
+    // Variant 0 — character study
+    (w) => [
+      `${w[0]} unraveled from the corner where she had spun. She was the unmarried sister. She kept the family in thread.`,
+      `${w[1]} from the chair by the fire — she had been listening for sixty years and never been asked to speak.`,
+      `${w[2]} cut from the cloth that her younger brother's wife had taken credit for. She did not protest then. She does not need to now.`,
+      `${w[3] || w[0]} — the kinship word she was given (aunt, widow, distaff) dissolves into the simpler truth: a woman, alone, working.`,
+      null,
+      `${w[4] || w[1]} did not marry. ${w[5] || w[2]} did not marry. The family histories called this "without issue."`,
+      `Their issue was the cloth. Their issue was the spinning. Their issue was everyone else's clothing.`,
+      `The word "spinster" started as the name of a job. It became an insult only because the job was women's.`,
+      `Now the spinning wheel turns without them, in a museum, behind glass.`,
+      null,
+      `${w[0]}, ${w[1]}, ${w[2]} — the unmarried, the widowed, the elder.`,
+      `Their hands released the distaff. The distaff is light now. Lighter than they made it look.`,
+      null,
+      `The wheel goes on. They do not need to be remembered to have spun it true.`,
+    ],
+    // Variant 1 — etymology
+    (w) => [
+      `"Spinster" began as the name of a job: a woman who spun.`,
+      `${w[0]} was a spinster. She spun. The job was a profession; the word was respectful.`,
+      `${w[1]} was a spinster. She spun. The cloth she made clothed the village.`,
+      `${w[2]} was a spinster — and somewhere along the way, the word stopped meaning what she did.`,
+      null,
+      `It became a name for what she didn't do: marry. As if that absence were larger than her work.`,
+      `It became an insult. As if the work itself, the thing the word originally meant, were the insult.`,
+      `${w[3] || w[0]} was a spinster. She did the thing the word originally meant.`,
+      `${w[4] || w[1]} was a spinster. She did the thing the word originally meant.`,
+      null,
+      `When you pulled ${w[5] || w[2]}, you pulled the word back to its first meaning.`,
+      `A woman, alone, working — and the cloth she made.`,
+      null,
+      `The word returns to its original use. The hands return with it.`,
+    ],
+    // Variant 2 — unanswered letter
+    (w) => [
+      `Dear ${w[0]}, you did not write back. The wheel keeps turning.`,
+      `Dear ${w[1]}, the brother's wife took the credit. She is also a woman; this is more complicated than I thought.`,
+      `Dear ${w[2]}, you are listed in the family bible without a death date. They lost track. You went on spinning anyway.`,
+      `Dear ${w[3] || w[0]}, the cloth is still here. It outlasted everyone who outranked you.`,
+      null,
+      `I am writing to ask: did you mind?`,
+      `I am writing to say: the household relied on you and never said so out loud.`,
+      `${w[4] || w[1]}, your distaff has a museum label now. Your name is not on it.`,
+      `${w[5] || w[2]}, your spinning wheel has a price tag now. Your hands are not in the description.`,
+      null,
+      `I am writing to pull. I am pulling, now, as I write.`,
+      `The pull is the letter. The release is the postage stamp.`,
+      null,
+      `I do not need a reply. The cloth replied, on your behalf, before I could finish the sentence.`,
+    ],
+  ],
+  invisible: [
+    // Variant 0 — archive negation
+    (w) => [
+      `${w[0]} dropped — though no one had written her there to begin with. The unrecorded surfacing only as they leave.`,
+      `${w[1]} let go of a thread that was never officially attributed to her. There is no record to correct.`,
+      `${w[2]} from the silence between the names — a hole the size of her, finally visible because something fell through it.`,
+      `${w[3] || w[0]} — the footnote of a footnote of a footnote. You cannot lose what was already missing. And yet.`,
+      null,
+      `${w[4] || w[1]} was real. ${w[5] || w[2]} was real. The archive holds no proof.`,
+      `The cloth holds the proof. The cloth has been holding it the whole time.`,
+      `Pull the cloth and you find them: women whose only document is the work they made.`,
+      `Their names are not retrievable. Their hands are.`,
+      null,
+      `${w[0]}, ${w[1]}, ${w[2]}, ${w[3] || w[0]} — never anonymous to themselves.`,
+      `Anonymous only to us. To us, who came after, who did not look.`,
+      null,
+      `Now you have looked. Now you have torn. Now they are, briefly, here.`,
+    ],
+    // Variant 1 — cloth as testimony
+    (w) => [
+      `There is no archive. There is the cloth.`,
+      `${w[0]} is not a name in any record. ${w[0]} is a knot in the weft, a small consistency in how the thread was pulled tight.`,
+      `${w[1]} did not sign her work. Her work signed itself, with the way her left hand differed from her right.`,
+      `${w[2]} appears in no document. ${w[2]} appears in every metre of cloth her village wove for thirty years.`,
+      null,
+      `The archive is sparse because the archive was made by people who were not paying attention.`,
+      `The cloth is dense because the cloth was made by the people who were doing the work.`,
+      `What the archive does not record, the cloth records.`,
+      `What the archive forgets, the cloth holds.`,
+      null,
+      `You pulled ${w[3] || w[0]}. You felt the knot — barely — in the weave. That was her.`,
+      `You pulled ${w[4] || w[1]}. You felt the difference in tension. That was her too.`,
+      null,
+      `The proof is the cloth. The proof is the pull. The proof was always available; we just had to put our hands on it.`,
+    ],
+    // Variant 2 — counting
+    (w) => [
+      `How many ${w[0]}s? Uncountable.`,
+      `How many ${w[1]}s? Uncountable.`,
+      `How many ${w[2]}s? Uncountable.`,
+      `How many ${w[3] || w[0]}s? You see where this is going.`,
+      null,
+      `The unrecorded outnumber the recorded by orders of magnitude.`,
+      `This is not a tragedy in the usual sense. This is just arithmetic.`,
+      `Most of the people who made most of the cloth were women whose names are not retrievable.`,
+      `The arithmetic is severe. The cloth is also severe. The cloth is also gentle.`,
+      null,
+      `Each thread you pull is a count. Each count is a person.`,
+      `${w[4] || w[1]}. ${w[5] || w[2]}. The numbers are not abstract.`,
+      null,
+      `We will not get them back. We can pull, and pull, and pull, and that will have to be enough — and it is.`,
+    ],
+  ],
+};
+
+function triggerSonnet() {
+  if (state.sonnetWordsBuffer.length < SONNET_TRIGGER) return;
+  const words = state.sonnetWordsBuffer.slice(0, 8);
+  const northVoice = getNorthCategory();
+  showSonnet(words, northVoice);
+  state.verticalPullsSinceSonnet = 0;
+  state.sonnetWordsBuffer = [];
+  updatePanel();
+}
+
+function showSonnet(wordsArr, northVoice) {
+  state.generations++;
+  const wordList = wordsArr.map(w => w.word);
+  const labelWords = wordList.slice(0, 8).join(' · ');
+  const card = document.getElementById('poem-card');
+  card.classList.add('sonnet');
+  document.getElementById('poem-pattern-label').textContent = `PROSE SONNET — ${northVoice.toUpperCase()} VOICE — 4 PULLS`;
+  document.getElementById('poem-words-label').textContent = labelWords;
+  const generators = SONNET_TEMPLATES[northVoice] || SONNET_TEMPLATES.invisible;
+  state.sonnetVoiceCounter[northVoice] = state.sonnetVoiceCounter[northVoice] || 0;
+  const generator = generators[state.sonnetVoiceCounter[northVoice] % generators.length];
+  state.sonnetVoiceCounter[northVoice]++;
+  const lines = generator(wordList);
+  const body = document.getElementById('poem-body');
+  body.innerHTML = '';
+  const verseDiv = document.createElement('div');
+  verseDiv.className = 'sonnet-verse';
+  let lineCount = 0;
+  for (const ln of lines) {
+    if (ln === null) {
+      const br = document.createElement('span'); br.className = 'sn-stanza-break';
+      verseDiv.appendChild(br); continue;
+    }
+    const span = document.createElement('span');
+    span.className = 'sn-line';
+    if (lineCount === 13) span.classList.add('sn-couplet');
+    span.textContent = ln;
+    verseDiv.appendChild(span);
+    lineCount++;
+  }
+  body.appendChild(verseDiv);
+  document.getElementById('poem-overlay').classList.add('active');
+}
+
+// ── FULL VERSE ─────────────────────────────────────────────────
+function detectPullPattern() {
+  const frags = state.fragments.filter(f => !f.isConnection);
+  if (frags.length === 0) return 'plain';
+  if (frags.length === 1) return 'diamond';
+  const rings = frags.map(f => f.ringIdx);
+  const spokes = frags.map(f => f.spokeIdx);
+  const rRange = Math.max(...rings) - Math.min(...rings);
+  const sRange = Math.min(Math.max(...spokes) - Math.min(...spokes), SPOKES - (Math.max(...spokes) - Math.min(...spokes)));
+  if (rRange <= 1 && sRange >= 4) return 'satin';
+  if (sRange <= 1 && rRange >= 3) return 'plain';
+  if (rRange <= 1 && sRange <= 2) return 'diamond';
+  if (Math.abs(rRange - sRange) <= 1 && rRange >= 2 && sRange >= 2) return 'twill';
+  return 'herringbone';
+}
+
+const PATTERN_DESCRIPTIONS = {
+  plain: 'Plain — straight along one spoke',
+  twill: 'Twill — a diagonal pull',
+  satin: 'Satin — sweeping around one ring',
+  herringbone: 'Herringbone — torn in many directions',
+  diamond: 'Diamond — a single tight knot',
+};
+
+function showFullVerse() {
+  state.generations++;
+  const pattern = detectPullPattern();
+  const allWords = state.fragments.map(f => f.word);
+  const wordsList = allWords.slice(0, 10).join(' · ') + (allWords.length > 10 ? ` · +${allWords.length - 10}` : '');
+  const card = document.getElementById('poem-card');
+  card.classList.remove('sonnet');
+  document.getElementById('poem-pattern-label').textContent = `${pattern.toUpperCase()} PULL — ${state.fragments.length} VERSES`;
+  document.getElementById('poem-words-label').textContent = PATTERN_DESCRIPTIONS[pattern] + ' · ' + wordsList;
+  const body = document.getElementById('poem-body');
+  body.innerHTML = '';
+  const verseDiv = document.createElement('div');
+  verseDiv.className = 'full-verse';
+
+  const addLine = (text) => {
+    if (text === null) {
+      const br = document.createElement('span'); br.className = 'full-stanza-break';
+      verseDiv.appendChild(br); return;
+    }
+    const ln = document.createElement('span');
+    ln.className = 'full-line';
+    ln.textContent = text;
+    verseDiv.appendChild(ln);
+  };
+
+  const opening = ({
+    plain: 'You went straight down one spoke. Every word along the line let go.',
+    twill: 'You pulled diagonally. The wheel slanted as it came undone.',
+    satin: 'You walked around one ring, tearing as you went.',
+    herringbone: 'You tore in every direction. Nothing about this was patient.',
+    diamond: 'You returned to one place. The same wound, again and again.',
+  })[pattern];
+  addLine(opening); addLine(null);
+
+  for (let i = 0; i < state.fragments.length; i++) {
+    const fr = state.fragments[i];
+    for (const line of fr.lines) addLine(line);
+    if (i < state.fragments.length - 1) addLine(null);
+  }
+  addLine(null);
+  const last = allWords[allWords.length - 1] || 'silence';
+  const first = allWords[0] || 'thread';
+  const closing = ({
+    plain: `${first} first, ${last} last — the column emptied, name by name.`,
+    twill: `from ${first} to ${last}, the angle held — a slope of releases.`,
+    satin: `the ring is open. ${first}, ${last}, and everyone between, freed in one long sweep.`,
+    herringbone: `${first}, then somewhere else; ${last}, then somewhere else again. the wheel forgot which way it was facing.`,
+    diamond: `${first} loosened. ${last} loosened. all of them, in the same small wound.`,
+  })[pattern];
+  addLine(closing);
+  body.appendChild(verseDiv);
+  document.getElementById('poem-overlay').classList.add('active');
+}
+
+function closePoem() { document.getElementById('poem-overlay').classList.remove('active'); }
+function freshTear() { closePoem(); doReweave(); }
+window.closePoem = closePoem;
+window.freshTear = freshTear;
+function openProcess() { document.getElementById('process-overlay').classList.add('active'); }
+function closeProcess() { document.getElementById('process-overlay').classList.remove('active'); }
+window.openProcess = openProcess;
+window.closeProcess = closeProcess;
+
+// ── BUTTONS ────────────────────────────────────────────────────
+function setupReweaveButton() {
+  const btn = document.getElementById('reweave-btn');
+  btn.onclick = () => {
+    if (state.brokenCrossLinks === 0 && state.userConnections.length === 0 && state.fragments.length === 0) {
+      doReweave(); return;
+    }
+    if (!state.reweaveArmed) {
+      state.reweaveArmed = true;
+      btn.classList.add('warn');
+      btn.textContent = 'Click again to confirm';
+      clearTimeout(state.reweaveTimeout);
+      state.reweaveTimeout = setTimeout(() => {
+        state.reweaveArmed = false;
+        btn.classList.remove('warn');
+        btn.textContent = 'Re-weave the wheel';
+      }, 3000);
+    } else { doReweave(); }
+  };
+}
+
+function doReweave() {
+  state.reweaveArmed = false;
+  clearTimeout(state.reweaveTimeout);
+  const btn = document.getElementById('reweave-btn');
+  btn.classList.remove('warn');
+  btn.textContent = 'Re-weave the wheel';
+  buildWheel();
+}
+
+document.getElementById('read-btn').onclick = () => {
+  if (state.fragments.length < 1) return;
+  showFullVerse();
+};
+
+document.getElementById('reset-view-btn').onclick = () => {
+  state.cameraTheta = 0;
+  state.cameraPhi = 0.45;
+  state.cameraDistance = 1700;
+  updateCamera();
+  updateNorthDisplay();
+};
+
+document.getElementById('process-btn').onclick = openProcess;
+
+// ── ANIMATION LOOP ─────────────────────────────────────────────
+function animate() {
+  requestAnimationFrame(animate);
+  // Gentle breathing pulse on the center hub so it reads as interactive
+  if (state.centerHub) {
+    const t = performance.now() * 0.001;
+    state.centerHub.scale.setScalar(1 + Math.sin(t * 2) * 0.06);
+  }
+  physicsStep();
+  updateLineGeometries();
+  updateSpritePositions();
+  state.renderer.render(state.scene, state.camera);
+}
+
+// ── INIT ───────────────────────────────────────────────────────
+setupThree();
+buildWheel();
+setupReweaveButton();
+animate();
+</script>
+
+</body>
+</html>
